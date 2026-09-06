@@ -1,0 +1,27 @@
+# Allow-list: only source code, documentation, and tests belong in Git.
+*
+!.gitignore
+!README.md
+!TODO.md
+!config.toml
+!video_tools.py
+!video_tools.bat
+!tests/
+!tests/**
+
+# Archive state must never be committed.
+yt-dlp-archive.txt*
+.video-tools/
+__pycache__/
+.test-temp/
+*.info.json
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.flv
+*.wmv
+*.vtt
+*.srt
+*.ass

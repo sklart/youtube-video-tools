@@ -1,0 +1,22 @@
+[paths]
+cookies = "D:\\Download\\www.youtube.com_cookies.txt"
+yt_dlp = "yt-dlp"
+ffprobe = "ffprobe"
+
+[subtitles]
+folders = ["Deep Look"]
+languages = ["ru-en-US"]
+pause_seconds = 5
+
+[sorting]
+pause_seconds = 2
+max_retries = 3
+allow_unknown = false
+
+[download]
+sync_archive_before_download = true
+
+[bookmarks]
+pause_seconds = 3
+max_retries = 2
+retry_backoff_seconds = 30
