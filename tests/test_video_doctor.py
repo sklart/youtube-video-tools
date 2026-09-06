@@ -84,6 +84,44 @@ max_retries = "many"
             self.assertEqual(result.status, "error")
             self.assertIn("целым числом", result.message)
 
+    def test_invalid_section_types_never_crash_doctor(self):
+        for section, value in (
+            ("paths", "[]"),
+            ("paths", '"broken"'),
+            ("subtitles", "[]"),
+            ("sorting", '"broken"'),
+            ("download", "[]"),
+            ("bookmarks", '"broken"'),
+        ):
+            with (
+                self.subTest(section=section, value=value),
+                tempfile.TemporaryDirectory() as temp_dir,
+            ):
+                root = Path(temp_dir)
+                config = root / "config.toml"
+                config.write_text(f"{section} = {value}\n", encoding="utf-8")
+                with patch.object(video_doctor, "check_command"):
+                    results = run_doctor(root, config)
+                self.assertEqual(results[1].status, "error")
+                self.assertEqual(doctor_exit_code(results), 1)
+
+    def test_invalid_bookmarks_timeout_is_reported(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.toml"
+            config.write_text("[bookmarks]\nffmpeg_timeout_seconds = false\n", encoding="utf-8")
+            _, result = load_and_check_config(config)
+            self.assertEqual(result.status, "error")
+            self.assertIn("ffmpeg_timeout_seconds", result.message)
+
+    def test_broken_cache_is_reported(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cache = root / ".video-tools" / "yt-dlp-cache.json"
+            cache.parent.mkdir()
+            cache.write_text("{broken", encoding="utf-8")
+            result = video_doctor.check_cache(root)
+            self.assertEqual(result.status, "error")
+
     def test_missing_command_is_reported(self):
         with patch("youtube_video_tools.commands.doctor.shutil.which", return_value=None):
             result = check_command("tool", "missing-tool", ["--version"])

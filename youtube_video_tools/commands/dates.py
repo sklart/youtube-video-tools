@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from .. import config as video_config
+from ..console import console_print as print
 from ..core import extract_filename_date, path_selected
 from . import inventory
 

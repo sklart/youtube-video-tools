@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar
 from enum import StrEnum
 
 
@@ -46,6 +48,45 @@ class Console:
         self.emit(Level.VERBOSE, message)
 
 
+_active_console: ContextVar[Console | None] = ContextVar("active_console", default=None)
+
+
+@contextmanager
+def use_console(console: Console):
+    token = _active_console.set(console)
+    try:
+        yield
+    finally:
+        _active_console.reset(token)
+
+
+def console_print(*values: object, sep: str = " ", end: str = "\n", **_: object) -> None:
+    """Compatibility output function for commands during the Console migration."""
+    message = sep.join(str(value) for value in values)
+    console = _active_console.get()
+    if console is None:
+        try:
+            print(message, end=end)
+        except UnicodeEncodeError:
+            encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+            safe = message.encode(encoding, errors="replace").decode(encoding)
+            print(safe, end=end)
+        return
+    level = Level.INFO
+    if message.startswith("[ERROR]"):
+        level = Level.ERROR
+    elif message.startswith(("[WARN]", "[WARNING]")):
+        level = Level.WARNING
+    elif message.startswith("[OK]"):
+        level = Level.SUCCESS
+    elif message.startswith(("[PROCESS", "[CHECK]", "[APPLY]", "[DOWNLOAD]")):
+        level = Level.PROGRESS
+    console.emit(level, message, end=end)
+
+
 def configure_stdout() -> None:
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        except (OSError, ValueError):
+            pass

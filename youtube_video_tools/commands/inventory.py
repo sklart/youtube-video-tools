@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config as video_config
+from ..console import console_print as print
 from ..core import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_VIDEO_EXTENSIONS,

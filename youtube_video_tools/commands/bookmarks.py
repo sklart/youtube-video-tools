@@ -12,6 +12,8 @@ from pathlib import Path
 from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
+from ..config import config_section
+from ..console import console_print as print
 from ..core import is_affirmative_reply, path_selected
 from ..services.ffmpeg import FFmpegClient, FFprobeClient
 from ..services.process import ExternalToolError
@@ -47,7 +49,7 @@ class ProgressTracker:
 
 def parse_args() -> argparse.Namespace:
     config = load_config()
-    bookmarks_config = config.get("bookmarks", {})
+    bookmarks_config = config_section(config, "bookmarks")
     parser = argparse.ArgumentParser(
         description=(
             "Сверяет встроенные главы видео с актуальными данными "

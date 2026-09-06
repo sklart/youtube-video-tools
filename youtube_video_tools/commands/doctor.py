@@ -120,6 +120,12 @@ def load_and_check_config(config_path: Path) -> tuple[dict[str, Any], CheckResul
             or bookmarks["max_retries"] < 1
         ):
             errors.append("bookmarks.max_retries должен быть целым числом не меньше 1")
+        if "ffmpeg_timeout_seconds" in bookmarks and (
+            not isinstance(bookmarks["ffmpeg_timeout_seconds"], int)
+            or isinstance(bookmarks["ffmpeg_timeout_seconds"], bool)
+            or bookmarks["ffmpeg_timeout_seconds"] <= 0
+        ):
+            errors.append("bookmarks.ffmpeg_timeout_seconds должен быть целым числом больше 0")
 
     if errors:
         return config, CheckResult("Конфигурация", "error", "; ".join(errors))
@@ -208,8 +214,10 @@ def check_cache(root: Path) -> CheckResult:
     path = video_metadata_cache.cache_path(root)
     if not path.exists():
         return CheckResult("Кэш", "ok", "ещё не создан")
-    state = video_metadata_cache.load_cache(root)
-    return CheckResult("Кэш", "ok", f"{len(state['entries'])} записей: {path}")
+    count, error = video_metadata_cache.inspect_cache(root)
+    if error:
+        return CheckResult("Кэш", "error", f"повреждён: {error}")
+    return CheckResult("Кэш", "ok", f"{count} записей: {path}")
 
 
 def run_doctor(root: Path, config_path: Path) -> list[CheckResult]:
@@ -241,7 +249,7 @@ def print_results(results: list[CheckResult], *, console: Console | None = None)
         console.emit(levels[result.status], f"{result.name}: {result.message}")
     errors = sum(result.status == "error" for result in results)
     warnings = sum(result.status == "warning" for result in results)
-    print(f"[SUMMARY] Ошибок: {errors}; предупреждений: {warnings}")
+    console.info(f"Ошибок: {errors}; предупреждений: {warnings}")
 
 
 def doctor_exit_code(results: list[CheckResult]) -> int:

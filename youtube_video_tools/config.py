@@ -49,6 +49,12 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
         return tomllib.load(config_file)
 
 
+def config_section(config: dict[str, Any], name: str) -> dict[str, Any]:
+    """Return a mapping section without trusting user-provided TOML types."""
+    value = config.get(name, {})
+    return value if isinstance(value, dict) else {}
+
+
 def configured_path(
     config: dict[str, Any],
     key: str,
@@ -60,7 +66,7 @@ def configured_path(
     if configured_env_path:
         return configured_env_path
 
-    value = config.get("paths", {}).get(key)
+    value = config_section(config, "paths").get(key)
     return Path(value).expanduser() if value else None
 
 
@@ -75,4 +81,4 @@ def configured_command(
     configured_env_value = env_text(resolved_env_name)
     if configured_env_value:
         return configured_env_value
-    return str(config.get("paths", {}).get(key, default))
+    return str(config_section(config, "paths").get(key, default))

@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import config as video_config
+from ..console import console_print as print
 from ..core import is_affirmative_reply, path_selected
 from . import inventory
 

@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 
 from .. import config as video_config
+from ..config import config_section
+from ..console import console_print as print
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
 from . import archive_sync as sync_download_archive
@@ -45,7 +47,7 @@ def main() -> int:
         print(f"[ERROR] Cookies-файл не найден: {cookies_file}")
         return 2
 
-    if config.get("download", {}).get("sync_archive_before_download", True):
+    if config_section(config, "download").get("sync_archive_before_download", True):
         print("[SYNC] Проверка yt-dlp-archive.txt по локальным видео...")
         sync_result = synchronize_archive(
             root,

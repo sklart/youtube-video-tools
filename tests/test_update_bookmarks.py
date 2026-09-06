@@ -109,16 +109,20 @@ class UpdateBookmarksTests(unittest.TestCase):
         )
 
     def test_build_progress_tracker_waits_before_eta(self):
-        tracker = update_bookmarks.build_progress_tracker(window_size=3, min_samples_for_eta=2)
-        first_line = tracker.line("CHECK", 1, 5, "Video [abcdefghijk].mp4")
-        with patch.object(update_bookmarks.time, "monotonic", side_effect=[101.0, 102.0, 102.0]):
+        with patch.object(
+            update_bookmarks.time,
+            "monotonic",
+            side_effect=[100.0, 101.0, 102.0, 102.0],
+        ):
+            tracker = update_bookmarks.build_progress_tracker(window_size=3, min_samples_for_eta=2)
+            first_line = tracker.line("CHECK", 1, 5, "Video [abcdefghijk].mp4")
             tracker.tick()
             second_line = tracker.line("CHECK", 2, 5, "Video [abcdefghijk].mp4")
             tracker.tick()
             third_line = tracker.line("CHECK", 3, 5, "Video [abcdefghijk].mp4")
         self.assertIn("ETA collecting...", first_line)
         self.assertIn("ETA collecting...", second_line)
-        self.assertIn("ETA 2s", third_line)
+        self.assertIn("ETA 3s", third_line)
 
     def test_classify_remote_error_distinguishes_private_and_retry(self):
         private_kind = update_bookmarks.classify_remote_error(
@@ -253,7 +257,10 @@ class UpdateBookmarksTests(unittest.TestCase):
         self.assertIn("[добавлена: Intro]", output.getvalue())
         self.assertNotIn("rutube123", output.getvalue())
         self.assertIn("[CHECK] 1/1 Video [abcdefghijk].mp4 (ETA ", output.getvalue())
-        self.assertIn("[REPORT] План сохранён: .video-tools\\bookmarks-plan.txt", output.getvalue())
+        self.assertIn(
+            str(Path(".video-tools") / "bookmarks-plan.txt"),
+            output.getvalue(),
+        )
         self.assertIn("planned_updates: 1", report_text)
         self.assertIn("private_or_unavailable: 0", report_text)
         self.assertIn("other_errors: 0", report_text)

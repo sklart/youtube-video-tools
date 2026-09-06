@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from .. import config as video_config
+from ..console import console_print as print
 from ..core import path_selected
 from ..services.ffmpeg import FFprobeClient
 from ..services.process import ExternalToolError

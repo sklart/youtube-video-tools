@@ -9,6 +9,7 @@ from pathlib import Path
 from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
+from ..console import console_print as print
 from ..core import extract_filename_date, normalize_windows_name, path_selected
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError

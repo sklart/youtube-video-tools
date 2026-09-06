@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from youtube_video_tools import cli as video_tools
 from youtube_video_tools.config import BASE_DIR, DEFAULT_CONFIG_PATH
+from youtube_video_tools.console import console_print
 from youtube_video_tools.core import extract_filename_date, normalize_windows_name
+from youtube_video_tools.locking import ArchiveLock
 
 
 class VideoToolsTests(unittest.TestCase):
@@ -128,9 +130,9 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_quiet_keeps_only_warnings_and_errors(self):
         def fake_main():
-            print("[SCAN] ordinary")
-            print("[WARNING] warning")
-            print("[ERROR] error")
+            console_print("[SCAN] ordinary")
+            console_print("[WARNING] warning")
+            console_print("[ERROR] error")
             return 2
 
         fake_module = type(
@@ -158,6 +160,46 @@ class VideoToolsTests(unittest.TestCase):
         self.assertNotIn("[SCAN]", output.getvalue())
         self.assertIn("[WARNING] warning", output.getvalue())
         self.assertIn("[ERROR] error", output.getvalue())
+
+    def test_cli_rejects_each_mutating_command_while_archive_locked(self):
+        cases = (
+            ("download", []),
+            ("rename", ["--apply"]),
+            ("resort", ["--apply"]),
+            ("resort", ["--undo-last"]),
+            ("archive-sync", ["--apply"]),
+            ("bookmarks", ["--apply"]),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = root / "config.toml"
+            config.write_text("", encoding="utf-8")
+            with ArchiveLock(root):
+                for command, arguments in cases:
+                    with self.subTest(command=command, arguments=arguments):
+                        output = StringIO()
+                        with redirect_stdout(output):
+                            result = video_tools.execute_command(
+                                command,
+                                arguments,
+                                root=root,
+                                config_path=config,
+                            )
+                        self.assertEqual(result, 1)
+                        self.assertIn("архив уже изменяется", output.getvalue())
+
+    def test_console_print_handles_legacy_windows_encoding(self):
+        class Cp1252Stream(StringIO):
+            encoding = "cp1252"
+
+            def write(self, value):
+                value.encode(self.encoding)
+                return super().write(value)
+
+        output = Cp1252Stream()
+        with patch("sys.stdout", output):
+            console_print("Проверка Unicode")
+        self.assertTrue(output.getvalue())
 
     def test_menu_runs_doctor(self):
         answers = iter(["1", "", "0"])

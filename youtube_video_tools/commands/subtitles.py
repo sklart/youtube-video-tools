@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 
 from .. import config as video_config
+from ..config import config_section
+from ..console import console_print as print
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
@@ -22,7 +24,7 @@ SUBTITLE_EXTENSIONS = inventory.SUBTITLE_EXTENSIONS
 
 def parse_args() -> argparse.Namespace:
     config = load_config()
-    subtitle_config = config.get("subtitles", {})
+    subtitle_config = config_section(config, "subtitles")
 
     parser = argparse.ArgumentParser(description="Скачивает автосубтитры к видео.")
     parser.add_argument("--root", type=Path, default=BASE_DIR)

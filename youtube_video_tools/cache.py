@@ -27,6 +27,20 @@ def load_cache(root: Path) -> dict:
     return {"entries": normalized, "dirty": False}
 
 
+def inspect_cache(root: Path) -> tuple[int | None, str | None]:
+    """Return the entry count, or an error without hiding malformed JSON."""
+    path = cache_path(root)
+    if not path.exists():
+        return 0, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return None, str(error)
+    if not isinstance(payload, dict):
+        return None, "корень JSON должен быть объектом"
+    return len(payload), None
+
+
 def get_value(
     state: dict,
     source_type: str,

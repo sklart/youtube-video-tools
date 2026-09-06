@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
-import io
 import json
 import os
 import sys
@@ -26,7 +24,7 @@ from .commands import (
     subtitles,
 )
 from .config import CONFIG_ENV_NAME, default_config_path, default_root_path
-from .console import Console, configure_stdout
+from .console import Console, configure_stdout, use_console
 from .core import FOLDER_FILTER_ENV, is_affirmative_reply, resolve_folder_filter
 from .locking import ArchiveLock, ArchiveLockedError
 
@@ -139,16 +137,6 @@ def execute_command(
     folders: tuple[str, ...] = (),
 ) -> int:
     console = Console(quiet=quiet, verbose=verbose)
-    if quiet and command_name != "doctor":
-        captured = io.StringIO()
-        with contextlib.redirect_stdout(captured):
-            result = execute_command(
-                command_name, arguments, root=root, config_path=config_path, folders=folders
-            )
-        for line in captured.getvalue().splitlines():
-            if "[ERROR]" in line or "[WARNING]" in line or "[WARN]" in line:
-                print(line)
-        return result
     if verbose:
         console.verbose(f"root={root}")
         console.verbose(f"config={config_path}")
@@ -183,12 +171,19 @@ def execute_command(
         or (command_name in {"rename", "archive-sync", "bookmarks"} and "--apply" in arguments)
         or (command_name == "resort" and ({"--apply", "--undo-last"} & set(arguments)))
     )
+    if (
+        quiet
+        and command_name in {"resort", "archive-sync", "bookmarks"}
+        and "--yes" not in command_arguments
+    ):
+        command_arguments.append("--yes")
     try:
         sys.argv = [f"{command_name}.py", *command_arguments]
-        if mutating:
-            with ArchiveLock(root):
-                return int(COMMAND_MODULES[command_name].main() or 0)
-        return int(COMMAND_MODULES[command_name].main() or 0)
+        with use_console(console):
+            if mutating:
+                with ArchiveLock(root):
+                    return int(COMMAND_MODULES[command_name].main() or 0)
+            return int(COMMAND_MODULES[command_name].main() or 0)
     except ArchiveLockedError as error:
         console.error(str(error))
         return 1

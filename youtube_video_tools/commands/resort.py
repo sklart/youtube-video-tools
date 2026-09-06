@@ -12,6 +12,8 @@ from pathlib import Path
 from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
+from ..config import config_section
+from ..console import console_print as print
 from ..core import is_affirmative_reply, normalize_windows_name
 from ..models import parse_source_ref
 from ..services.process import ExternalToolError
@@ -45,7 +47,7 @@ SUBTITLE_EXTENSIONS = inventory.SUBTITLE_EXTENSIONS
 
 def parse_args() -> argparse.Namespace:
     config = load_config()
-    sorting = config.get("sorting", {})
+    sorting = config_section(config, "sorting")
     default_cookies = configured_path(config, "cookies", env_name="YOUTUBE_COOKIES_FILE")
 
     parser = argparse.ArgumentParser(description="Сортирует видео из корня по папкам авторов.")
@@ -402,20 +404,32 @@ def preflight_apply(
     if not root.is_dir():
         raise NotADirectoryError(f"Корневой путь не является папкой: {root}")
 
+    resolved_root = root.resolve()
+    if os.name == "nt":
+        resolved_root = Path(os.path.normcase(os.path.normpath(str(resolved_root))))
+
+    def normalize_inside(path: Path) -> Path:
+        resolved = path.resolve()
+        comparison = (
+            Path(os.path.normcase(os.path.normpath(str(resolved)))) if os.name == "nt" else resolved
+        )
+        comparison.relative_to(resolved_root)
+        return comparison
+
     destinations: set[Path] = set()
     operation_count = 0
     for plan in plans:
         for source, destination in plan:
             operation_count += 1
-            source.resolve().relative_to(root)
-            destination.resolve().relative_to(root)
+            normalize_inside(source)
+            normalized_destination = normalize_inside(destination)
             if not source.is_file():
                 raise FileNotFoundError(f"Исходный файл не найден: {source}")
             if destination.exists():
                 raise FileExistsError(f"Целевой путь уже существует: {destination}")
-            if destination in destinations:
+            if normalized_destination in destinations:
                 raise FileExistsError(f"Целевой путь повторяется: {destination}")
-            destinations.add(destination)
+            destinations.add(normalized_destination)
 
     required_journal_space = max(1_048_576, operation_count * 4096)
     free_space = shutil.disk_usage(root).free
