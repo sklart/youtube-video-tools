@@ -59,20 +59,27 @@ def main() -> int:
     if not root_path.is_dir():
         get_console().error(f"Корневая папка не найдена: {root_path}")
         return 2
-    get_console().info(f"[CHECK] Проверка видеофайлов в {root_path} ...\n")
+    get_console().info(f"Проверка видеофайлов в {root_path}.")
     failures = 0
+    checked = 0
     for root, _, files in os.walk(root_path):
         for file in files:
             if Path(file).suffix.lower() in VIDEO_EXTENSIONS:
                 file_path = Path(root) / file
                 if not path_selected(root_path, file_path):
                     continue
+                checked += 1
                 res = get_video_resolution(file_path, ffprobe)
                 if res:
                     w, h = res
                     resolution = f"{w}x{h}"
-                    get_console().info(f"{file_path}  ->  {colorize_resolution(h, resolution)}")
+                    get_console().info(f"{file_path}: {colorize_resolution(h, resolution)}")
                 else:
-                    get_console().info(f"{file_path}  ->  [Не удалось определить]")
+                    get_console().warning(f"{file_path}: не удалось определить разрешение")
                     failures += 1
-    return 1 if failures else 0
+    summary = f"Проверено видео: {checked}; не удалось определить: {failures}"
+    if failures:
+        get_console().warning(summary)
+        return 1
+    get_console().success(summary)
+    return 0

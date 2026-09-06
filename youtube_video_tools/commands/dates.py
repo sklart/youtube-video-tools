@@ -49,10 +49,12 @@ def main():
 
     checked, missing, invalid = inspect_video_dates(root)
     for path in missing:
-        get_console().info(f"[MISSING] {path}")
+        get_console().info(f"Нет даты: {path}")
     for path, date_text in invalid:
-        get_console().info(f"[INVALID] {date_text}: {path}")
-    get_console().info(
-        f"[SUMMARY] Видео: {checked}; без даты: {len(missing)}; некорректная дата: {len(invalid)}"
-    )
-    return 1 if missing or invalid else 0
+        get_console().info(f"Некорректная дата {date_text}: {path}")
+    summary = f"Видео: {checked}; без даты: {len(missing)}; некорректная дата: {len(invalid)}"
+    if missing or invalid:
+        get_console().warning(summary)
+        return 1
+    get_console().success(summary)
+    return 0
