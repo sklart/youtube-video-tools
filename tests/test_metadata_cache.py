@@ -21,9 +21,9 @@ class MetadataCacheTests(unittest.TestCase):
             )
 
             with patch.object(
-                rename.subprocess,
+                rename.YtDlpClient,
                 "run",
-                side_effect=AssertionError("subprocess.run should not be called"),
+                side_effect=AssertionError("yt-dlp should not be called"),
             ):
                 date_text, error = rename.get_upload_date(
                     "abcdefghijk",
@@ -48,9 +48,9 @@ class MetadataCacheTests(unittest.TestCase):
             )
 
             with patch.object(
-                duplicates.subprocess,
+                duplicates.YtDlpClient,
                 "run",
-                side_effect=AssertionError("subprocess.run should not be called"),
+                side_effect=AssertionError("yt-dlp should not be called"),
             ):
                 title = duplicates.get_youtube_title(
                     "abcdefghijk",
@@ -74,9 +74,9 @@ class MetadataCacheTests(unittest.TestCase):
             )
 
             with patch.object(
-                resort.subprocess,
+                resort.YtDlpClient,
                 "run",
-                side_effect=AssertionError("subprocess.run should not be called"),
+                side_effect=AssertionError("yt-dlp should not be called"),
             ):
                 uploader = resort.get_uploader(
                     "abcdefghijk",

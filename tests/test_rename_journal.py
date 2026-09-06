@@ -1,4 +1,3 @@
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -7,6 +6,7 @@ from unittest.mock import patch
 
 from youtube_video_tools.commands import rename as rename_files
 from youtube_video_tools.journal import read_journal
+from youtube_video_tools.services.process import ProcessResult
 
 
 class RenameJournalTests(unittest.TestCase):
@@ -27,14 +27,9 @@ class RenameJournalTests(unittest.TestCase):
                     ],
                 ),
                 patch.object(
-                    rename_files.subprocess,
+                    rename_files.YtDlpClient,
                     "run",
-                    return_value=subprocess.CompletedProcess(
-                        args=[],
-                        returncode=0,
-                        stdout="20260611\n",
-                        stderr="",
-                    ),
+                    return_value=ProcessResult((), 0, "20260611\n", ""),
                 ),
             ):
                 result = rename_files.main()

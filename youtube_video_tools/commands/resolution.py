@@ -2,11 +2,12 @@
 
 import argparse
 import os
-import subprocess
 from pathlib import Path
 
 from .. import config as video_config
 from ..core import path_selected
+from ..services.ffmpeg import FFprobeClient
+from ..services.process import ExternalToolError
 from . import inventory
 
 configured_command = video_config.configured_command
@@ -20,23 +21,24 @@ BASE_DIR = video_config.BASE_DIR
 def get_video_resolution(file_path, ffprobe="ffprobe"):
     """Возвращает (width, height) видео через ffprobe"""
     try:
-        cmd = [
-            ffprobe,
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=width,height",
-            "-of",
-            "csv=s=x:p=0",
-            str(file_path),
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = FFprobeClient(ffprobe).run(
+            [
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                "-of",
+                "csv=s=x:p=0",
+                str(file_path),
+            ],
+            timeout=30,
+        )
         if result.returncode == 0 and result.stdout.strip():
             width, height = result.stdout.strip().split("x")
             return int(width), int(height)
-    except Exception:
+    except (ExternalToolError, ValueError):
         return None
     return None
 

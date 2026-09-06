@@ -1,11 +1,11 @@
 """Download Yt Favorites implementation."""
 
 import argparse
-import subprocess
-import sys
 from pathlib import Path
 
 from .. import config as video_config
+from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 from . import archive_sync as sync_download_archive
 
 BASE_DIR = video_config.BASE_DIR
@@ -16,10 +16,6 @@ synchronize_archive = sync_download_archive.synchronize_archive
 
 
 PLAYLIST_URL = "https://www.youtube.com/playlist?list=WL"
-
-GREEN = "\033[92m"
-RED = "\033[91m"
-RESET = "\033[0m"
 
 
 def fix_unknown_channel(line: str) -> str:
@@ -46,7 +42,7 @@ def main() -> int:
     output_template = root / "%(uploader)s" / "%(title)s_%(upload_date>%d.%m.%Y)s [%(id)s].%(ext)s"
 
     if not cookies_file or not cookies_file.exists():
-        print(f"{RED}[ERROR]{RESET} Cookies-файл не найден: {cookies_file}")
+        print(f"[ERROR] Cookies-файл не найден: {cookies_file}")
         return 2
 
     if config.get("download", {}).get("sync_archive_before_download", True):
@@ -58,13 +54,10 @@ def main() -> int:
             assume_yes=True,
         )
         if sync_result != 0:
-            print(f"{RED}[ERROR]{RESET} Загрузка отменена из-за ошибки синхронизации.")
+            print("[ERROR] Загрузка отменена из-за ошибки синхронизации.")
             return sync_result
 
-    cmd = [
-        yt_dlp,
-        "--cookies",
-        str(cookies_file),
+    arguments = [
         "--encoding",
         "utf-8",
         "--sponsorblock-mark",
@@ -87,41 +80,24 @@ def main() -> int:
         PLAYLIST_URL,
     ]
 
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(
-            encoding="utf-8",
-            errors="replace",
-            line_buffering=True,
-        )
+    def show_line(raw_line: str) -> None:
+        line = simplify_terminal_line(raw_line.strip())
+        if not line:
+            return
+        if "[download]" in line:
+            print(f"\r[PROCESSING] {line}", end="")
+        elif "error" in line.lower():
+            print(f"\n[ERROR] {line}")
 
     try:
-        with subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            encoding="utf-8",
-            errors="replace",
-        ) as process:
-            assert process.stdout is not None
-            for raw_line in process.stdout:
-                line = simplify_terminal_line(raw_line.strip())
-                if not line:
-                    continue
-                if "[download]" in line:
-                    print(f"\r{GREEN}[Processing]{RESET} {line}", end="")
-                elif "error" in line.lower():
-                    print(f"\n{RED}[ERROR]{RESET} {line}")
-
-            return_code = process.wait()
-    except FileNotFoundError:
-        print(f"{RED}[ERROR]{RESET} Не найдена программа: {yt_dlp}")
+        result = YtDlpClient(yt_dlp, cookies_file=cookies_file).stream(arguments, on_line=show_line)
+    except ExternalToolError as error:
+        print(f"[ERROR] {error}")
         return 2
 
-    if return_code != 0:
-        print(f"\n{RED}[ERROR]{RESET} yt-dlp завершился с кодом {return_code}")
+    if result.returncode != 0:
+        print(f"\n[ERROR] yt-dlp завершился с кодом {result.returncode}")
     else:
         print()
 
-    return return_code
+    return result.returncode

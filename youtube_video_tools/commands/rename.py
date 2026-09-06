@@ -2,7 +2,6 @@
 
 import argparse
 import re
-import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,8 @@ from .. import config as video_config
 from .. import journal as video_journal
 from ..core import extract_filename_date, normalize_windows_name, path_selected
 from ..models import SourceType, parse_source_ref
+from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 
 BASE_DIR = video_config.BASE_DIR
 configured_command = video_config.configured_command
@@ -83,29 +84,16 @@ def get_upload_date(
         )
         if cached:
             return cached, None
-    cmd = [
-        yt_dlp,
+    command = [
         "--skip-download",
         "--print",
         "%(upload_date)s",
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    if cookies:
-        cmd[1:1] = ["--cookies", str(cookies)]
-
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-    except FileNotFoundError:
-        return None, f"не найдена программа {yt_dlp}"
-    except subprocess.TimeoutExpired:
-        return None, f"таймаут запроса ({timeout} с)"
+        result = YtDlpClient(yt_dlp, cookies_file=cookies).run(command, timeout=timeout)
+    except ExternalToolError as error:
+        return None, str(error)
 
     if result.returncode != 0:
         message = result.stderr.strip().splitlines()

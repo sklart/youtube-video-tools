@@ -3,7 +3,6 @@
 import argparse
 import json
 import os
-import subprocess
 import tempfile
 import time
 import uuid
@@ -14,8 +13,9 @@ from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
 from ..core import is_affirmative_reply, path_selected
-from ..services.ffmpeg import FFprobeClient
+from ..services.ffmpeg import FFmpegClient, FFprobeClient
 from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 from ..state import atomic_write_json
 from . import inventory
 
@@ -250,8 +250,7 @@ def fetch_remote_video_info(
     max_retries: int,
     retry_backoff_seconds: float,
 ) -> tuple[dict[str, object] | None, str | None]:
-    cmd = [
-        yt_dlp,
+    command = [
         "--skip-download",
         "--no-playlist",
         "--dump-single-json",
@@ -263,24 +262,12 @@ def fetch_remote_video_info(
         REMOVE_CATEGORIES,
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    if cookies and cookies.exists():
-        cmd[1:1] = ["--cookies", str(cookies)]
-
     attempts = max(1, max_retries + 1)
     for attempt in range(1, attempts + 1):
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-            )
-        except FileNotFoundError:
-            return None, f"не найдена программа {yt_dlp}"
-        except subprocess.TimeoutExpired:
-            return None, f"таймаут запроса ({timeout} с)"
+            result = YtDlpClient(yt_dlp, cookies_file=cookies).run(command, timeout=timeout)
+        except ExternalToolError as error:
+            return None, str(error)
 
         if result.returncode == 0:
             try:
@@ -320,8 +307,7 @@ def read_embedded_chapters(
     ffprobe: str,
     timeout: int,
 ) -> tuple[list[dict[str, object]] | None, str | None]:
-    cmd = [
-        ffprobe,
+    command = [
         "-v",
         "error",
         "-print_format",
@@ -330,18 +316,9 @@ def read_embedded_chapters(
         str(video_path),
     ]
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-    except FileNotFoundError:
-        return None, f"не найдена программа {ffprobe}"
-    except subprocess.TimeoutExpired:
-        return None, f"таймаут ffprobe ({timeout} с)"
+        result = FFprobeClient(ffprobe).run(command, timeout=timeout)
+    except ExternalToolError as error:
+        return None, str(error)
 
     if result.returncode != 0:
         message = result.stderr.strip().splitlines()
@@ -360,8 +337,7 @@ def read_local_duration(
     ffprobe: str,
     timeout: int,
 ) -> tuple[float | None, str | None]:
-    cmd = [
-        ffprobe,
+    command = [
         "-v",
         "error",
         "-show_entries",
@@ -371,18 +347,9 @@ def read_local_duration(
         str(video_path),
     ]
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-    except FileNotFoundError:
-        return None, f"не найдена программа {ffprobe}"
-    except subprocess.TimeoutExpired:
-        return None, f"таймаут ffprobe ({timeout} с)"
+        result = FFprobeClient(ffprobe).run(command, timeout=timeout)
+    except ExternalToolError as error:
+        return None, str(error)
 
     if result.returncode != 0:
         message = result.stderr.strip().splitlines()
@@ -508,14 +475,7 @@ def rewrite_embedded_chapters(
             cmd.extend(["-map_chapters", "-1"])
         cmd.append(str(temp_output))
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
+        result = FFmpegClient(ffmpeg).run(cmd[1:], timeout=timeout)
         if result.returncode != 0:
             message = result.stderr.strip().splitlines()
             raise RuntimeError(
@@ -525,10 +485,8 @@ def rewrite_embedded_chapters(
         if not valid:
             raise RuntimeError(f"временный файл не прошёл проверку: {error}")
         temp_output.replace(video_path)
-    except subprocess.TimeoutExpired as error:
-        raise RuntimeError(f"ffmpeg превысил таймаут ({timeout} с)") from error
-    except FileNotFoundError as error:
-        raise RuntimeError(f"не найдена программа {ffmpeg}") from error
+    except ExternalToolError as error:
+        raise RuntimeError(f"ffmpeg превысил таймаут ({timeout} с): {error}") from error
     finally:
         if metadata_path and metadata_path.exists():
             metadata_path.unlink()
@@ -643,8 +601,7 @@ def redownload_video(
     temp_output = Path(temp_name)
     temp_output.unlink(missing_ok=True)
 
-    cmd = [
-        yt_dlp,
+    command = [
         "--no-playlist",
         "--encoding",
         "utf-8",
@@ -667,38 +624,27 @@ def redownload_video(
         str(temp_output),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    if cookies and cookies.exists():
-        cmd[1:1] = ["--cookies", str(cookies)]
+
+    def show_line(raw_line: str) -> None:
+        line = simplify_terminal_line(raw_line.strip())
+        if not line:
+            return
+        if "[download]" in line:
+            print(f"\r[REDOWNLOAD] {line}", end="")
+        elif "error" in line.lower():
+            print(f"\n[ERROR] {line}")
 
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+        result = YtDlpClient(yt_dlp, cookies_file=cookies).stream(
+            command,
+            timeout=timeout,
+            on_line=show_line,
         )
-    except FileNotFoundError:
-        return False, f"не найдена программа {yt_dlp}"
+    except ExternalToolError as error:
+        return False, str(error)
 
-    try:
-        assert process.stdout is not None
-        for raw_line in process.stdout:
-            line = simplify_terminal_line(raw_line.strip())
-            if not line:
-                continue
-            if "[download]" in line:
-                print(f"\r[REDOWNLOAD] {line}", end="")
-            elif "error" in line.lower():
-                print(f"\n[ERROR] {line}")
-        return_code = process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        return False, f"таймаут загрузки ({timeout} с)"
-
-    if return_code != 0:
-        return False, f"yt-dlp завершился с кодом {return_code}"
+    if result.returncode != 0:
+        return False, f"yt-dlp завершился с кодом {result.returncode}"
 
     if not temp_output.exists():
         matches = sorted(video_path.parent.glob(f"{temp_output.stem}*{video_path.suffix}"))

@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 import uuid
@@ -15,6 +14,8 @@ from .. import config as video_config
 from .. import journal as video_journal
 from ..core import is_affirmative_reply, normalize_windows_name
 from ..models import parse_source_ref
+from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 from . import inventory
 
 BASE_DIR = video_config.BASE_DIR
@@ -283,28 +284,19 @@ def get_uploader(
     else:
         return None
 
-    cmd = [yt_dlp, "-j", url]
-    if video_type == "youtube" and cookies:
-        cmd[1:1] = ["--cookies", str(cookies)]
+    command = ["-j", url]
 
     uploader = None
     for attempt in range(1, max_retries + 1):
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-            )
-        except FileNotFoundError:
-            log_error(root, f"Не найдена программа {yt_dlp}", write_log=write_log)
-            break
-        except subprocess.TimeoutExpired:
+            result = YtDlpClient(
+                yt_dlp,
+                cookies_file=cookies if video_type == "youtube" else None,
+            ).run(command, timeout=timeout)
+        except ExternalToolError as error:
             log_error(
                 root,
-                f"{video_type.upper()} ID={video_id}: таймаут, попытка {attempt}",
+                f"{video_type.upper()} ID={video_id}: {error}; попытка {attempt}",
                 write_log=write_log,
             )
             result = None

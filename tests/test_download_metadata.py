@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from youtube_video_tools.commands import download as download_yt_favorites
+from youtube_video_tools.services.process import ProcessResult
 
 
 class DownloadMetadataTests(unittest.TestCase):
@@ -19,31 +20,15 @@ class DownloadMetadataTests(unittest.TestCase):
             previous_cookies = os.environ.get("YOUTUBE_COOKIES_FILE")
             previous_ytdlp = os.environ.get("VIDEO_TOOLS_YT_DLP")
 
-            class FakeProcess:
-                def __init__(self, cmd):
-                    self.cmd = cmd
-                    self.stdout = iter([])
-
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, exc_type, exc, tb):
-                    return False
-
-                def wait(self):
-                    return 0
-
-            def fake_popen(cmd, **kwargs):
-                output.append(cmd)
-                return FakeProcess(cmd)
+            def fake_stream(self, arguments, **kwargs):
+                output.append([self.executable, *arguments])
+                return ProcessResult(tuple(output[-1]), 0, "", "")
 
             try:
                 os.environ["YOUTUBE_COOKIES_FILE"] = str(cookies)
                 os.environ["VIDEO_TOOLS_YT_DLP"] = "yt-dlp"
                 sys.argv = ["download_yt_favorites.py", "--root", str(root)]
-                with patch.object(
-                    download_yt_favorites.subprocess, "Popen", side_effect=fake_popen
-                ):
+                with patch.object(download_yt_favorites.YtDlpClient, "stream", fake_stream):
                     result = download_yt_favorites.main()
             finally:
                 sys.argv = previous_argv

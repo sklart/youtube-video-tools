@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from youtube_video_tools.commands import inventory, subtitles
+from youtube_video_tools.services.process import ProcessResult
 
 
 class SubtitleSupportTests(unittest.TestCase):
@@ -59,9 +60,13 @@ class SubtitleSupportTests(unittest.TestCase):
                     str(cookies),
                 ]
                 with (
-                    patch(
-                        "subprocess.run",
-                        side_effect=lambda cmd, **kwargs: captured.append(cmd[-1]),
+                    patch.object(
+                        subtitles.YtDlpClient,
+                        "run",
+                        side_effect=lambda arguments, **kwargs: (
+                            captured.append(arguments[-1])
+                            or ProcessResult(tuple(arguments), 0, "", "")
+                        ),
                     ),
                     patch(
                         "time.sleep",

@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import os
 import re
-import subprocess
 from collections import defaultdict
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -13,6 +12,8 @@ from .. import cache as video_metadata_cache
 from .. import config as video_config
 from ..core import path_selected
 from ..models import SourceType, parse_source_ref
+from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 from . import inventory
 
 BASE_DIR = video_config.BASE_DIR
@@ -35,8 +36,7 @@ def get_youtube_title(
         cached = get_cached_field(metadata_cache, "youtube", video_id, "title")
         if cached:
             return cached
-    cmd = [
-        yt_dlp,
+    command = [
         "--skip-download",
         "--print",
         "%(title)s",
@@ -44,23 +44,10 @@ def get_youtube_title(
         "utf-8",
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    if cookies_file and cookies_file.exists():
-        cmd[1:1] = ["--cookies", str(cookies_file)]
-
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        print(f"[ERROR] Таймаут запроса {video_id}")
-        return None
-    except FileNotFoundError:
-        print(f"[ERROR] Не найдена программа {yt_dlp}")
+        result = YtDlpClient(yt_dlp, cookies_file=cookies_file).run(command, timeout=30)
+    except ExternalToolError as error:
+        print(f"[ERROR] {error}")
         return None
 
     if result.returncode == 0:

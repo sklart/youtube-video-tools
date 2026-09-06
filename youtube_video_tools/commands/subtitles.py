@@ -1,12 +1,13 @@
 """Get Subtitles implementation."""
 
 import argparse
-import subprocess
 import time
 from pathlib import Path
 
 from .. import config as video_config
 from ..models import SourceType, parse_source_ref
+from ..services.process import ExternalToolError
+from ..services.yt_dlp import YtDlpClient
 from . import inventory
 
 BASE_DIR = video_config.BASE_DIR
@@ -93,8 +94,7 @@ def download_subtitles(
             print(f"[SKIP] Субтитры {language} уже есть: {video_path.name}")
             continue
 
-        cmd = [
-            yt_dlp,
+        command = [
             "--write-auto-sub",
             "--sub-langs",
             language,
@@ -103,20 +103,14 @@ def download_subtitles(
             str(video_path.with_suffix(".%(ext)s")),
             url,
         ]
-        if cookies and cookies.exists():
-            cmd[1:1] = ["--cookies", str(cookies)]
-
         print(f"[DOWNLOAD] {language}: {video_path.name}")
         try:
-            subprocess.run(cmd, check=True, timeout=timeout)
-        except FileNotFoundError:
-            print(f"[ERROR] Не найдена программа {yt_dlp}")
-            return errors + 1
-        except subprocess.TimeoutExpired:
-            print(f"[ERROR] Таймаут для {video_path.name}")
-            errors += 1
-        except subprocess.CalledProcessError as error:
-            print(f"[ERROR] Не удалось скачать субтитры: {error}")
+            result = YtDlpClient(yt_dlp, cookies_file=cookies).run(command, timeout=timeout)
+            if result.returncode:
+                print(f"[ERROR] Не удалось скачать субтитры: код {result.returncode}")
+                errors += 1
+        except ExternalToolError as error:
+            print(f"[ERROR] {error}")
             errors += 1
 
         if pause > 0:
