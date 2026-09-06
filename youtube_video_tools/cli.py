@@ -145,11 +145,11 @@ def execute_command(
         )
         console.verbose("folders=" + (", ".join(folders) if folders else "(все)"))
     if folders and command_name not in FOLDER_FILTER_COMMANDS:
-        print(f"[ERROR] Команда {command_name} не поддерживает выбор папок.")
+        console.error(f"Команда {command_name} не поддерживает выбор папок.")
         return 2
     if command_name == "doctor":
         if arguments:
-            print("[ERROR] Команда doctor не принимает дополнительные аргументы.")
+            console.error("Команда doctor не принимает дополнительные аргументы.")
             return 2
         results = doctor.run_doctor(root, config_path)
         doctor.print_results(results, console=console)
@@ -171,12 +171,6 @@ def execute_command(
         or (command_name in {"rename", "archive-sync", "bookmarks"} and "--apply" in arguments)
         or (command_name == "resort" and ({"--apply", "--undo-last"} & set(arguments)))
     )
-    if (
-        quiet
-        and command_name in {"resort", "archive-sync", "bookmarks"}
-        and "--yes" not in command_arguments
-    ):
-        command_arguments.append("--yes")
     try:
         sys.argv = [f"{command_name}.py", *command_arguments]
         with use_console(console):
@@ -188,10 +182,10 @@ def execute_command(
         console.error(str(error))
         return 1
     except KeyboardInterrupt:
-        print("\n[CANCEL] Операция прервана.")
+        console.warning("Операция прервана.")
         return 130
     except (OSError, ImportError) as error:
-        print(f"[ERROR] Не удалось запустить {command_name}: {error}")
+        console.error(f"Не удалось запустить {command_name}: {error}")
         return 2
     finally:
         sys.argv = previous_argv
@@ -254,7 +248,7 @@ def main(argv: list[str] | None = None, *, input_fn=input) -> int:
             args.root.resolve(), args.folders, args.folder_file, all_folders=args.all_folders
         )
     except (OSError, ValueError) as error:
-        print(f"[ERROR] Не удалось выбрать папки: {error}")
+        Console().error(f"Не удалось выбрать папки: {error}")
         return 2
     return execute_command(
         args.command,

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import is_affirmative_reply, path_selected
 from . import inventory
 
@@ -138,13 +138,14 @@ def apply_sync_plan(
 
 
 def print_plan(plan: ArchiveSyncPlan) -> None:
-    print(
-        f"[SUMMARY] Локальных YouTube ID: {len(plan.local_ids)}; "
+    console = get_console()
+    console.info(
+        f"Локальных YouTube ID: {len(plan.local_ids)}; "
         f"строк архива: {len(plan.original_lines)}; "
         f"к удалению: {len(plan.removed_ids)}"
     )
     for identifier in plan.removed_ids:
-        print(f"[REMOVE] youtube {identifier}")
+        console.info(f"Удалить: youtube {identifier}")
 
 
 def synchronize_archive(
@@ -155,13 +156,14 @@ def synchronize_archive(
     assume_yes: bool,
     input_fn=input,
 ) -> int:
+    console = get_console()
     if not root.is_dir():
-        print(f"[ERROR] Корневая папка не найдена: {root}")
+        console.error(f"Корневая папка не найдена: {root}")
         return 2
     try:
         plan = build_sync_plan(root, archive_path)
     except OSError as error:
-        print(f"[ERROR] Не удалось построить план: {error}")
+        console.error(f"Не удалось построить план: {error}")
         return 2
 
     print_plan(plan)
@@ -172,21 +174,21 @@ def synchronize_archive(
         try:
             answer = input_fn("Удалить перечисленные ID из архива? [Y/n]: ")
         except (EOFError, KeyboardInterrupt):
-            print("\n[CANCEL] Архив не изменялся.")
+            console.warning("Архив не изменялся.")
             return 0
         if not is_affirmative_reply(answer):
-            print("[CANCEL] Архив не изменялся.")
+            console.warning("Архив не изменялся.")
             return 0
 
     try:
         backup = apply_sync_plan(archive_path, plan)
     except OSError as error:
-        print(f"[ERROR] Не удалось обновить архив: {error}")
+        console.error(f"Не удалось обновить архив: {error}")
         return 2
 
     if backup:
-        print(f"[OK] Архив обновлён: {archive_path}")
-        print(f"[OK] Резервная копия: {backup}")
+        console.success(f"Архив обновлён: {archive_path}")
+        console.success(f"Резервная копия: {backup}")
     return 0
 
 

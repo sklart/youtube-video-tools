@@ -8,6 +8,12 @@
 - `doctor` устойчив к неверным типам TOML, валидирует timeout SponsorBlock и диагностирует повреждённый cache.
 - CI разделён на матричные unit-тесты и независимую quality/packaging проверку.
 
+## 1.0.0 - Stage 1.2
+
+- `--quiet` больше никогда не добавляет `--yes`: опасные операции требуют обычного подтверждения, если `--yes` не задан явно.
+- Дополнены safety-тесты archive lock, Ctrl+C, cleanup окружения, atomic cache и временной замены видео.
+- Улучшены Unicode fallback и точный Console output.
+
 ## 1.0.0 - 2026-09-06
 
 - Разделён монолитный `video_tools.py` на пакет `youtube_video_tools`.

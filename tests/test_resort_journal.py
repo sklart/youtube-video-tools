@@ -172,6 +172,27 @@ class ResortJournalTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 preflight_apply(root, [[(source, destination)]])
 
+    def test_preflight_rejects_destination_outside_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "archive"
+            root.mkdir()
+            source = root / "video.mp4"
+            source.write_bytes(b"video")
+            with self.assertRaises(ValueError):
+                preflight_apply(root, [[(source, root / ".." / "outside.mp4")]])
+
+    def test_preflight_rejects_duplicate_normalized_destinations(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            first = root / "first.mp4"
+            second = root / "second.mp4"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            target = root / "Channel" / "video.mp4"
+            equivalent = root / "Channel" / "subdir" / ".." / "video.mp4"
+            with self.assertRaises(FileExistsError):
+                preflight_apply(root, [[(first, target), (second, equivalent)]])
+
     def test_confirmation_accepts_short_yes(self):
         with redirect_stdout(StringIO()):
             self.assertTrue(

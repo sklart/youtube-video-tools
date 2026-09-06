@@ -88,6 +88,35 @@ class SyncDownloadArchiveTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(archive.read_text(encoding="utf-8"), original)
 
+    def test_apply_prompts_without_yes_and_explicit_yes_skips_prompt(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            archive = root / "yt-dlp-archive.txt"
+            original = "youtube missing1234\n"
+            archive.write_text(original, encoding="utf-8")
+            prompts = []
+
+            result = synchronize_archive(
+                root,
+                archive,
+                apply=True,
+                assume_yes=False,
+                input_fn=lambda prompt: prompts.append(prompt) or "n",
+            )
+            self.assertEqual(result, 0)
+            self.assertEqual(len(prompts), 1)
+            self.assertEqual(archive.read_text(encoding="utf-8"), original)
+
+            result = synchronize_archive(
+                root,
+                archive,
+                apply=True,
+                assume_yes=True,
+                input_fn=lambda _: self.fail("--yes must not prompt"),
+            )
+            self.assertEqual(result, 0)
+            self.assertEqual(archive.read_text(encoding="utf-8"), "")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -522,6 +522,10 @@ class UpdateBookmarksTests(unittest.TestCase):
     def test_temporary_video_validation_requires_nonempty_video_stream(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             video = Path(temp_dir) / "replacement.mp4"
+            valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
+            self.assertFalse(valid)
+            self.assertIn("не создан", error)
+
             video.write_bytes(b"")
             valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
             self.assertFalse(valid)
@@ -536,6 +540,63 @@ class UpdateBookmarksTests(unittest.TestCase):
                 valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
             self.assertTrue(valid)
             self.assertIsNone(error)
+
+            with patch.object(
+                update_bookmarks.FFprobeClient,
+                "has_video_stream",
+                return_value=False,
+            ):
+                valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
+            self.assertFalse(valid)
+            self.assertIn("видеопоток", error)
+
+            with patch.object(
+                update_bookmarks.FFprobeClient,
+                "has_video_stream",
+                side_effect=update_bookmarks.ExternalToolError("ffprobe error"),
+            ):
+                valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
+            self.assertFalse(valid)
+            self.assertIn("ffprobe error", error)
+
+    def test_rewrite_keeps_original_when_temporary_video_is_invalid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "Video [abcdefghijk].mp4"
+            video.write_bytes(b"original")
+            with patch.object(
+                update_bookmarks.FFmpegClient,
+                "run",
+                return_value=CompletedProcess([], 0, "", ""),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "не прошёл проверку"):
+                    update_bookmarks.rewrite_embedded_chapters(
+                        video,
+                        [],
+                        ffmpeg="ffmpeg",
+                        timeout=1,
+                    )
+            self.assertEqual(video.read_bytes(), b"original")
+            self.assertEqual(list(Path(temp_dir).glob("*.bookmarks.*.mp4")), [])
+
+    def test_redownload_keeps_original_when_output_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "Video [abcdefghijk].mp4"
+            video.write_bytes(b"original")
+            with patch.object(
+                update_bookmarks.YtDlpClient,
+                "stream",
+                return_value=CompletedProcess([], 0, "", ""),
+            ):
+                success, error = update_bookmarks.redownload_video(
+                    video,
+                    "abcdefghijk",
+                    yt_dlp="yt-dlp",
+                    cookies=None,
+                    timeout=1,
+                )
+            self.assertFalse(success)
+            self.assertIn("без выходного файла", error)
+            self.assertEqual(video.read_bytes(), b"original")
 
     def test_main_apply_rewrites_when_confirmed(self):
         with tempfile.TemporaryDirectory() as temp_dir:

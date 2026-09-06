@@ -60,6 +60,11 @@ def use_console(console: Console):
         _active_console.reset(token)
 
 
+def get_console() -> Console:
+    """Return the CLI console, or a normal console for direct module calls."""
+    return _active_console.get() or Console()
+
+
 def console_print(*values: object, sep: str = " ", end: str = "\n", **_: object) -> None:
     """Compatibility output function for commands during the Console migration."""
     message = sep.join(str(value) for value in values)
@@ -68,6 +73,14 @@ def console_print(*values: object, sep: str = " ", end: str = "\n", **_: object)
         try:
             print(message, end=end)
         except UnicodeEncodeError:
+            reconfigure = getattr(sys.stdout, "reconfigure", None)
+            if callable(reconfigure):
+                try:
+                    reconfigure(encoding="utf-8", errors="replace")
+                    print(message, end=end)
+                    return
+                except (OSError, ValueError, UnicodeEncodeError):
+                    pass
             encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
             safe = message.encode(encoding, errors="replace").decode(encoding)
             print(safe, end=end)
@@ -75,12 +88,16 @@ def console_print(*values: object, sep: str = " ", end: str = "\n", **_: object)
     level = Level.INFO
     if message.startswith("[ERROR]"):
         level = Level.ERROR
+        message = message.removeprefix("[ERROR]").lstrip()
     elif message.startswith(("[WARN]", "[WARNING]")):
         level = Level.WARNING
+        message = message.split("]", 1)[1].lstrip()
     elif message.startswith("[OK]"):
         level = Level.SUCCESS
+        message = message.removeprefix("[OK]").lstrip()
     elif message.startswith(("[PROCESS", "[CHECK]", "[APPLY]", "[DOWNLOAD]")):
         level = Level.PROGRESS
+        message = message.split("]", 1)[1].lstrip()
     console.emit(level, message, end=end)
 
 

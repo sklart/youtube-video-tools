@@ -158,7 +158,7 @@ class VideoToolsTests(unittest.TestCase):
 
         self.assertEqual(result, 2)
         self.assertNotIn("[SCAN]", output.getvalue())
-        self.assertIn("[WARNING] warning", output.getvalue())
+        self.assertIn("[WARN] warning", output.getvalue())
         self.assertIn("[ERROR] error", output.getvalue())
 
     def test_cli_rejects_each_mutating_command_while_archive_locked(self):
@@ -187,6 +187,132 @@ class VideoToolsTests(unittest.TestCase):
                             )
                         self.assertEqual(result, 1)
                         self.assertIn("архив уже изменяется", output.getvalue())
+
+    def test_read_only_commands_run_while_archive_locked(self):
+        cases = (
+            ("rename", ["--dry-run"]),
+            ("resort", ["--dry-run"]),
+            ("archive-sync", ["--dry-run"]),
+            ("bookmarks", ["--dry-run"]),
+            ("dates", []),
+            ("resolution", []),
+            ("inventory", []),
+            ("report", []),
+            ("duplicates", []),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for command, arguments in cases:
+                called = []
+                fake_module = type(
+                    "FakeModule",
+                    (),
+                    {"main": staticmethod(lambda: called.append(True) or 0)},
+                )
+                with (
+                    self.subTest(command=command),
+                    ArchiveLock(root),
+                    patch.dict(video_tools.COMMAND_MODULES, {command: fake_module}),
+                ):
+                    result = video_tools.execute_command(
+                        command,
+                        arguments,
+                        root=root,
+                        config_path=root / "config.toml",
+                    )
+                self.assertEqual(result, 0)
+                self.assertEqual(called, [True])
+
+    def test_quiet_never_injects_yes_for_mutating_commands(self):
+        for command, arguments in (
+            ("resort", ["--apply"]),
+            ("archive-sync", ["--apply"]),
+            ("bookmarks", ["--apply"]),
+        ):
+            received: list[str] = []
+
+            def fake_main():
+                import sys
+
+                received.extend(sys.argv)
+                return 0
+
+            fake_module = type("FakeModule", (), {"main": staticmethod(fake_main)})
+            with (
+                self.subTest(command=command),
+                patch.dict(video_tools.COMMAND_MODULES, {command: fake_module}),
+            ):
+                result = video_tools.execute_command(
+                    command,
+                    arguments,
+                    root=Path("archive"),
+                    config_path=Path("config.toml"),
+                    quiet=True,
+                )
+            self.assertEqual(result, 0)
+            self.assertNotIn("--yes", received)
+
+    def test_explicit_yes_is_preserved(self):
+        received: list[str] = []
+
+        def fake_main():
+            import sys
+
+            received.extend(sys.argv)
+            return 0
+
+        fake_module = type("FakeModule", (), {"main": staticmethod(fake_main)})
+        with patch.dict(video_tools.COMMAND_MODULES, {"bookmarks": fake_module}):
+            result = video_tools.execute_command(
+                "bookmarks",
+                ["--apply", "--yes"],
+                root=Path("archive"),
+                config_path=Path("config.toml"),
+                quiet=True,
+            )
+        self.assertEqual(result, 0)
+        self.assertIn("--yes", received)
+
+    def test_cli_restores_process_state_after_command_errors(self):
+        import os
+        import sys
+
+        original_argv = sys.argv
+        original_config = os.environ.get("VIDEO_TOOLS_CONFIG")
+        original_folders = os.environ.get("VIDEO_TOOLS_FOLDERS")
+        fake_module = type(
+            "FakeModule",
+            (),
+            {"main": staticmethod(lambda: (_ for _ in ()).throw(OSError("broken")))},
+        )
+        with patch.dict(video_tools.COMMAND_MODULES, {"dates": fake_module}):
+            result = video_tools.execute_command(
+                "dates",
+                [],
+                root=Path("archive"),
+                config_path=Path("config.toml"),
+                folders=("Channel",),
+            )
+        self.assertEqual(result, 2)
+        self.assertIs(sys.argv, original_argv)
+        self.assertEqual(os.environ.get("VIDEO_TOOLS_CONFIG"), original_config)
+        self.assertEqual(os.environ.get("VIDEO_TOOLS_FOLDERS"), original_folders)
+
+    def test_keyboard_interrupt_returns_130_and_releases_lock(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fake_module = type(
+                "FakeModule",
+                (),
+                {"main": staticmethod(lambda: (_ for _ in ()).throw(KeyboardInterrupt))},
+            )
+            with patch.dict(video_tools.COMMAND_MODULES, {"download": fake_module}):
+                result = video_tools.execute_command(
+                    "download", [], root=root, config_path=root / "config.toml"
+                )
+            self.assertEqual(result, 130)
+            with ArchiveLock(root):
+                pass
 
     def test_console_print_handles_legacy_windows_encoding(self):
         class Cp1252Stream(StringIO):
