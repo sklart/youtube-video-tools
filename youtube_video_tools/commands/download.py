@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .. import config as video_config
 from ..config import config_section
-from ..console import console_print as print
+from ..console import get_console
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
 from . import archive_sync as sync_download_archive
@@ -44,11 +44,11 @@ def main() -> int:
     output_template = root / "%(uploader)s" / "%(title)s_%(upload_date>%d.%m.%Y)s [%(id)s].%(ext)s"
 
     if not cookies_file or not cookies_file.exists():
-        print(f"[ERROR] Cookies-файл не найден: {cookies_file}")
+        get_console().error(f"Cookies-файл не найден: {cookies_file}")
         return 2
 
     if config_section(config, "download").get("sync_archive_before_download", True):
-        print("[SYNC] Проверка yt-dlp-archive.txt по локальным видео...")
+        get_console().info("[SYNC] Проверка yt-dlp-archive.txt по локальным видео...")
         sync_result = synchronize_archive(
             root,
             archive_file,
@@ -56,7 +56,7 @@ def main() -> int:
             assume_yes=True,
         )
         if sync_result != 0:
-            print("[ERROR] Загрузка отменена из-за ошибки синхронизации.")
+            get_console().error("Загрузка отменена из-за ошибки синхронизации.")
             return sync_result
 
     arguments = [
@@ -87,19 +87,19 @@ def main() -> int:
         if not line:
             return
         if "[download]" in line:
-            print(f"\r[PROCESSING] {line}", end="")
+            get_console().progress(line, end="")
         elif "error" in line.lower():
-            print(f"\n[ERROR] {line}")
+            get_console().error(line)
 
     try:
         result = YtDlpClient(yt_dlp, cookies_file=cookies_file).stream(arguments, on_line=show_line)
     except ExternalToolError as error:
-        print(f"[ERROR] {error}")
+        get_console().error(f"{error}")
         return 2
 
     if result.returncode != 0:
-        print(f"\n[ERROR] yt-dlp завершился с кодом {result.returncode}")
+        get_console().error(f"yt-dlp завершился с кодом {result.returncode}")
     else:
-        print()
+        get_console().info("")
 
     return result.returncode

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .. import cache as video_metadata_cache
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import path_selected
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError
@@ -48,7 +48,7 @@ def get_youtube_title(
     try:
         result = YtDlpClient(yt_dlp, cookies_file=cookies_file).run(command, timeout=30)
     except ExternalToolError as error:
-        print(f"[ERROR] {error}")
+        get_console().error(f"{error}")
         return None
 
     if result.returncode == 0:
@@ -58,7 +58,7 @@ def get_youtube_title(
         return title or None
 
     message = result.stderr.strip().splitlines()
-    print(f"[ERROR] {message[-1] if message else 'Ошибка yt-dlp'}")
+    get_console().error(f"{message[-1] if message else 'Ошибка yt-dlp'}")
     return None
 
 
@@ -116,9 +116,11 @@ def find_exact_duplicates(
 def print_exact_duplicates(root: Path, *, video_files: list[Path] | None = None) -> int:
     duplicates = find_exact_duplicates(root, video_files=video_files)
     for size_bytes, digest, paths in duplicates:
-        print(f"\n[EXACT] файлов: {len(paths)}; размер: {size_bytes}; sha256: {digest}")
+        get_console().info(
+            f"\n[EXACT] файлов: {len(paths)}; размер: {size_bytes}; sha256: {digest}"
+        )
         for path in paths:
-            print(f"  {path.relative_to(root)}")
+            get_console().info(f"  {path.relative_to(root)}")
     return len(duplicates)
 
 
@@ -145,7 +147,7 @@ def find_duplicate_ids(
 
         duplicate_id_count += 1
 
-        print(f"\nID: {video_id} - найдено файлов: {len(files)}")
+        get_console().info(f"\nID: {video_id} - найдено файлов: {len(files)}")
         youtube_title = get_youtube_title(
             video_id,
             cookies_file=cookies_file,
@@ -166,9 +168,11 @@ def find_duplicate_ids(
         for file in files:
             relative_path = os.path.relpath(file, folder)
             if file == best_match:
-                print("  " + highlight(relative_path) + f'  <- ближе всего к "{youtube_title}"')
+                get_console().info(
+                    "  " + highlight(relative_path) + f'  <- ближе всего к "{youtube_title}"'
+                )
             else:
-                print(f"  {relative_path}")
+                get_console().info(f"  {relative_path}")
     return duplicate_id_count
 
 
@@ -179,7 +183,7 @@ def main() -> int:
     config = load_config()
     root = args.root.resolve()
     video_files = iter_video_files(root)
-    print(f"[CHECK] Видеофайлов для проверки: {len(video_files)}")
+    get_console().info(f"[CHECK] Видеофайлов для проверки: {len(video_files)}")
     metadata_cache_state = video_metadata_cache.load_cache(root)
     exact_count = print_exact_duplicates(root, video_files=video_files)
     duplicate_id_count = find_duplicate_ids(
@@ -190,11 +194,11 @@ def main() -> int:
         video_files=video_files,
     )
     video_metadata_cache.save_cache(root, metadata_cache_state)
-    print(
+    get_console().info(
         "\n[SUMMARY] "
         f"Точных групп дублей: {exact_count}; "
         f"повторяющихся YouTube ID: {duplicate_id_count}"
     )
     if not exact_count and not duplicate_id_count:
-        print("[OK] Дубли не найдены.")
+        get_console().success("Дубли не найдены.")
     return 0

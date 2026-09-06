@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import extract_filename_date, path_selected
 from . import inventory
 
@@ -44,15 +44,15 @@ def main():
     args = parse_args()
     root = args.root.resolve()
     if not root.is_dir():
-        print(f"[ERROR] Корневая папка не найдена: {root}")
+        get_console().error(f"Корневая папка не найдена: {root}")
         return 2
 
     checked, missing, invalid = inspect_video_dates(root)
     for path in missing:
-        print(f"[MISSING] {path}")
+        get_console().info(f"[MISSING] {path}")
     for path, date_text in invalid:
-        print(f"[INVALID] {date_text}: {path}")
-    print(
+        get_console().info(f"[INVALID] {date_text}: {path}")
+    get_console().info(
         f"[SUMMARY] Видео: {checked}; без даты: {len(missing)}; некорректная дата: {len(invalid)}"
     )
     return 1 if missing or invalid else 0

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import path_selected
 from ..services.ffmpeg import FFprobeClient
 from ..services.process import ExternalToolError
@@ -57,9 +57,9 @@ def main() -> int:
     ffprobe = configured_command(load_config(), "ffprobe", "ffprobe")
 
     if not root_path.is_dir():
-        print(f"[ERROR] Корневая папка не найдена: {root_path}")
+        get_console().error(f"Корневая папка не найдена: {root_path}")
         return 2
-    print(f"[CHECK] Проверка видеофайлов в {root_path} ...\n")
+    get_console().info(f"[CHECK] Проверка видеофайлов в {root_path} ...\n")
     failures = 0
     for root, _, files in os.walk(root_path):
         for file in files:
@@ -71,8 +71,8 @@ def main() -> int:
                 if res:
                     w, h = res
                     resolution = f"{w}x{h}"
-                    print(f"{file_path}  ->  {colorize_resolution(h, resolution)}")
+                    get_console().info(f"{file_path}  ->  {colorize_resolution(h, resolution)}")
                 else:
-                    print(f"{file_path}  ->  [Не удалось определить]")
+                    get_console().info(f"{file_path}  ->  [Не удалось определить]")
                     failures += 1
     return 1 if failures else 0

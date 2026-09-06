@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_VIDEO_EXTENSIONS,
@@ -147,21 +147,21 @@ def main() -> int:
     output = (args.output or (root / "inventory.csv")).resolve()
 
     if not root.is_dir():
-        print(f"[ERROR] Корневая папка не найдена: {root}")
+        get_console().error(f"Корневая папка не найдена: {root}")
         return 2
 
-    print(f"[SCAN] Файловые метаданные: {root}")
+    get_console().info(f"[SCAN] Файловые метаданные: {root}")
     records = collect_inventory(root)
     try:
         write_inventory(output, records)
     except OSError as error:
-        print(f"[ERROR] Не удалось записать {output}: {error}")
+        get_console().error(f"Не удалось записать {output}: {error}")
         return 2
 
     total_bytes = sum(record.size_bytes for record in records)
     with_subtitles = sum(record.subtitle_count > 0 for record in records)
-    print(f"[OK] CSV: {output}")
-    print(
+    get_console().success(f"CSV: {output}")
+    get_console().info(
         f"[SUMMARY] Видео: {len(records)}; с субтитрами: {with_subtitles}; "
         f"размер: {total_bytes / (1024**3):.2f} ГБ"
     )

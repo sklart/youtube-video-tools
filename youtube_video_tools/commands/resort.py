@@ -13,7 +13,7 @@ from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
 from ..config import config_section
-from ..console import console_print as print
+from ..console import get_console
 from ..core import is_affirmative_reply, normalize_windows_name
 from ..models import parse_source_ref
 from ..services.process import ExternalToolError
@@ -109,7 +109,7 @@ def sanitize_name(name: str, *, preserve_extension: bool = False) -> str:
 
 
 def log_error(root: Path, message: str, *, write_log: bool) -> None:
-    print(f"[ERROR] {message}")
+    get_console().error(f"{message}")
     if write_log:
         with (root / "errors.log").open("a", encoding="utf-8") as error_log:
             error_log.write(f"[ERROR] {message}\n")
@@ -176,18 +176,18 @@ def undo_last_run(root: Path) -> int:
         events = read_journal(root)
         last_run = find_last_undoable_run(events)
     except (OSError, ValueError) as error:
-        print(f"[ERROR] Не удалось прочитать журнал: {error}")
+        get_console().error(f"Не удалось прочитать журнал: {error}")
         return 2
 
     if not last_run:
-        print("[UNDO] Нет завершённых запусков, доступных для отмены.")
+        get_console().info("[UNDO] Нет завершённых запусков, доступных для отмены.")
         return 0
 
     target_run_id, moves = last_run
     try:
         plan = validate_undo_plan(root, moves)
     except (OSError, ValueError) as error:
-        print(f"[ERROR] Отмена невозможна: {error}")
+        get_console().error(f"Отмена невозможна: {error}")
         return 2
 
     undo_run_id = uuid.uuid4().hex
@@ -218,7 +218,7 @@ def undo_last_run(root: Path) -> int:
                     "result": "success",
                 },
             )
-            print(f"[UNDO] {current} -> {original}")
+            get_console().info(f"[UNDO] {current} -> {original}")
     except OSError as error:
         rollback_failed = False
         for current, original in reversed(completed):
@@ -236,7 +236,7 @@ def undo_last_run(root: Path) -> int:
                 "error": str(error),
             },
         )
-        print(f"[ERROR] Отмена прервана: {error}")
+        get_console().error(f"Отмена прервана: {error}")
         return 2
 
     write_journal_event(
@@ -249,7 +249,7 @@ def undo_last_run(root: Path) -> int:
             "operations": len(completed),
         },
     )
-    print(f"[SUMMARY] Отменён запуск {target_run_id}; файлов: {len(completed)}")
+    get_console().info(f"[SUMMARY] Отменён запуск {target_run_id}; файлов: {len(completed)}")
     return 0
 
 
@@ -462,7 +462,7 @@ def confirm_apply(
     assume_yes: bool,
     input_fn=input,
 ) -> bool:
-    print(
+    get_console().info(
         "[CONFIRM] Будет перемещено "
         f"видео: {video_count}; файлов всего: {file_count}; "
         f"целевых папок: {folder_count}."
@@ -472,7 +472,7 @@ def confirm_apply(
     try:
         answer = input_fn("Продолжить? [Y/n]: ")
     except (EOFError, KeyboardInterrupt):
-        print()
+        get_console().info("")
         return False
     return is_affirmative_reply(answer)
 
@@ -542,7 +542,7 @@ def main() -> int:
         return undo_last_run(root)
 
     if args.cookies and not args.cookies.exists():
-        print(f"[ERROR] Cookies-файл не найден: {args.cookies}")
+        get_console().error(f"Cookies-файл не найден: {args.cookies}")
         return 2
 
     videos = sorted(
@@ -550,7 +550,7 @@ def main() -> int:
         for path in root.iterdir()
         if path.is_file() and path.suffix.lower() in inventory.VIDEO_EXTENSIONS
     )
-    print(f"[{'APPLY' if args.apply else 'DRY-RUN'}] Найдено видео: {len(videos)}")
+    get_console().info(f"[{'APPLY' if args.apply else 'DRY-RUN'}] Найдено видео: {len(videos)}")
 
     cache: dict[str, str | None] = {}
     metadata_cache_state = video_metadata_cache.load_cache(root)
@@ -575,7 +575,7 @@ def main() -> int:
         )
         if not uploader:
             if not args.allow_unknown:
-                print(
+                get_console().info(
                     f"[SKIP] Автор не определён: {video.name}. "
                     "Для папки Unknown используйте --allow-unknown."
                 )
@@ -588,14 +588,14 @@ def main() -> int:
         planned.append((video, uploader, plan))
 
         for source, destination in plan:
-            print(f"[PLAN] {source.name} -> {destination}")
+            get_console().info(f"[PLAN] {source.name} -> {destination}")
 
         if args.pause > 0:
             time.sleep(args.pause)
 
     file_count = sum(len(plan) for _, _, plan in planned)
     folder_count = len({uploader for _, uploader, _ in planned})
-    print(
+    get_console().info(
         f"[SUMMARY] Запланировано видео: {len(planned)}; файлов: {file_count}; "
         f"папок: {folder_count}; без автора: {skipped_unknown}"
     )
@@ -607,16 +607,17 @@ def main() -> int:
     try:
         preflight_apply(root, plans)
     except (OSError, ValueError) as error:
-        print(f"[ERROR] Предварительная проверка не пройдена: {error}")
+        get_console().error(f"Предварительная проверка не пройдена: {error}")
         return 2
 
+    get_console().warning(f"Будет перемещено {file_count} файлов в {folder_count} папок.")
     if not confirm_apply(
         video_count=len(planned),
         file_count=file_count,
         folder_count=folder_count,
         assume_yes=args.yes,
     ):
-        print("[CANCEL] Перемещения не выполнялись.")
+        get_console().warning("Перемещения не выполнялись.")
         return 0
 
     run_id = uuid.uuid4().hex
@@ -647,7 +648,7 @@ def main() -> int:
 
         moved += 1
         for source, destination in plan:
-            print(f"[MOVE] {source.name} -> {destination}")
+            get_console().info(f"[MOVE] {source.name} -> {destination}")
 
     write_journal_event(
         root,
@@ -661,6 +662,6 @@ def main() -> int:
         },
     )
 
-    print(f"[SUMMARY] Перемещено видео: {moved}; ошибок: {failed}; запуск: {run_id}")
+    get_console().info(f"[SUMMARY] Перемещено видео: {moved}; ошибок: {failed}; запуск: {run_id}")
     video_metadata_cache.save_cache(root, metadata_cache_state)
     return 1 if failed else 0

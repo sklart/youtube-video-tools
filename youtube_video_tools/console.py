@@ -27,7 +27,7 @@ class Console:
             return
         if level is Level.VERBOSE and not self.verbose_enabled:
             return
-        print(f"[{level.value}] {message}", end=end)
+        _write_text(f"[{level.value}] {message}", end=end)
 
     def info(self, message: str) -> None:
         self.emit(Level.INFO, message)
@@ -66,39 +66,26 @@ def get_console() -> Console:
 
 
 def console_print(*values: object, sep: str = " ", end: str = "\n", **_: object) -> None:
-    """Compatibility output function for commands during the Console migration."""
+    """Deprecated raw compatibility helper; it never infers a log level."""
     message = sep.join(str(value) for value in values)
-    console = _active_console.get()
-    if console is None:
-        try:
-            print(message, end=end)
-        except UnicodeEncodeError:
-            reconfigure = getattr(sys.stdout, "reconfigure", None)
-            if callable(reconfigure):
-                try:
-                    reconfigure(encoding="utf-8", errors="replace")
-                    print(message, end=end)
-                    return
-                except (OSError, ValueError, UnicodeEncodeError):
-                    pass
-            encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
-            safe = message.encode(encoding, errors="replace").decode(encoding)
-            print(safe, end=end)
-        return
-    level = Level.INFO
-    if message.startswith("[ERROR]"):
-        level = Level.ERROR
-        message = message.removeprefix("[ERROR]").lstrip()
-    elif message.startswith(("[WARN]", "[WARNING]")):
-        level = Level.WARNING
-        message = message.split("]", 1)[1].lstrip()
-    elif message.startswith("[OK]"):
-        level = Level.SUCCESS
-        message = message.removeprefix("[OK]").lstrip()
-    elif message.startswith(("[PROCESS", "[CHECK]", "[APPLY]", "[DOWNLOAD]")):
-        level = Level.PROGRESS
-        message = message.split("]", 1)[1].lstrip()
-    console.emit(level, message, end=end)
+    get_console().emit(Level.INFO, message, end=end)
+
+
+def _write_text(message: str, *, end: str) -> None:
+    try:
+        print(message, end=end)
+    except UnicodeEncodeError:
+        reconfigure = getattr(sys.stdout, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+                print(message, end=end)
+                return
+            except (OSError, ValueError, UnicodeEncodeError):
+                pass
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        safe = message.encode(encoding, errors="replace").decode(encoding)
+        print(safe, end=end)
 
 
 def configure_stdout() -> None:

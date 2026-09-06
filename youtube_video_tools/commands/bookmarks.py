@@ -13,7 +13,7 @@ from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
 from ..config import config_section
-from ..console import console_print as print
+from ..console import get_console
 from ..core import is_affirmative_reply, path_selected
 from ..services.ffmpeg import FFmpegClient, FFprobeClient
 from ..services.process import ExternalToolError
@@ -291,7 +291,7 @@ def fetch_remote_video_info(
         error_text = message[-1] if message else f"код ошибки {result.returncode}"
         if attempt < attempts and is_rate_limited_message(error_text):
             wait_seconds = max(0.0, retry_backoff_seconds * attempt)
-            print(
+            get_console().info(
                 f"[WAIT] YouTube временно ограничил запрос для {video_id}; "
                 f"повтор {attempt}/{attempts - 1} через {wait_seconds:.1f} с."
             )
@@ -632,9 +632,9 @@ def redownload_video(
         if not line:
             return
         if "[download]" in line:
-            print(f"\r[REDOWNLOAD] {line}", end="")
+            get_console().progress(f"REDOWNLOAD: {line}", end="")
         elif "error" in line.lower():
-            print(f"\n[ERROR] {line}")
+            get_console().error(line)
 
     try:
         result = YtDlpClient(yt_dlp, cookies_file=cookies).stream(
@@ -660,7 +660,7 @@ def redownload_video(
         temp_output.unlink(missing_ok=True)
         return False, f"временный файл не прошёл проверку: {error}"
     temp_output.replace(video_path)
-    print()
+    get_console().info("")
     return True, None
 
 
@@ -996,11 +996,11 @@ def main() -> int:
     args = parse_args()
     root = args.root.resolve()
     if args.cookies and not args.cookies.exists():
-        print(f"[ERROR] Cookies-файл не найден: {args.cookies}")
+        get_console().error(f"Cookies-файл не найден: {args.cookies}")
         return 2
 
     videos = iter_youtube_videos(root)
-    print(f"[{'APPLY' if args.apply else 'DRY-RUN'}] YouTube-видео: {len(videos)}")
+    get_console().info(f"[{'APPLY' if args.apply else 'DRY-RUN'}] YouTube-видео: {len(videos)}")
 
     metadata_cache_state = load_cache(root)
     scan_state = load_scan_state(root, apply_mode=args.apply) or {
@@ -1021,7 +1021,7 @@ def main() -> int:
         trimmed_policy,
     ) = rebuild_scan_results(root, videos, scan_state, apply_mode=args.apply)
     if saved_records:
-        print(
+        get_console().info(
             f"[RESUME] Найдены результаты предыдущего прохода: "
             f"{len(saved_records)}/{len(videos)} видео уже обработано."
         )
@@ -1031,7 +1031,7 @@ def main() -> int:
         if isinstance(record, dict) and record.get("result") == "retry_later"
     ]
     if pending_retry_records:
-        print(
+        get_console().info(
             f"[RESUME] Временный бан YouTube прервал проверку для "
             f"{len(pending_retry_records)} видео; они будут проверены повторно."
         )
@@ -1042,14 +1042,14 @@ def main() -> int:
         relative = relative_path(root, video_path)
         if relative in saved_records:
             continue
-        print(check_tracker.line("CHECK", index, total_videos, relative))
+        get_console().info(check_tracker.line("CHECK", index, total_videos, relative))
         current, current_error = read_embedded_chapters(
             video_path,
             ffprobe=args.ffprobe,
             timeout=args.timeout,
         )
         if current_error:
-            print(f"[ERROR] {relative}: {current_error}")
+            get_console().error(f"{relative}: {current_error}")
             failed += 1
             scan_state["records"][relative] = {
                 **state_record_for_scan(
@@ -1070,7 +1070,7 @@ def main() -> int:
             timeout=args.timeout,
         )
         if duration_error:
-            print(f"[ERROR] {relative}: {duration_error}")
+            get_console().error(f"{relative}: {duration_error}")
             failed += 1
             scan_state["records"][relative] = {
                 **state_record_for_scan(
@@ -1094,7 +1094,7 @@ def main() -> int:
             retry_backoff_seconds=args.retry_backoff_seconds,
         )
         if remote_error:
-            print(f"[ERROR] {relative}: {remote_error}")
+            get_console().error(f"{relative}: {remote_error}")
             error_kind = classify_remote_error(remote_error)
             if error_kind == "retry_later":
                 retry_later += 1
@@ -1158,7 +1158,9 @@ def main() -> int:
                     }
                 elif action == "skip_all":
                     trimmed_policy = "skip_all"
-                    print(f"[SKIP] {relative}: пропущено для всех уже обрезанных видео.")
+                    get_console().warning(
+                        f"SKIP: {relative}: пропущено для всех уже обрезанных видео."
+                    )
                     scan_state["records"][relative] = {
                         **state_record_for_scan(
                             video_id=video_id,
@@ -1175,14 +1177,16 @@ def main() -> int:
                         remote_info=remote_info,
                     )
                 else:
-                    print(f"[SKIP] {relative}: уже обрезано, обновление глав небезопасно.")
+                    get_console().warning(
+                        f"SKIP: {relative}: уже обрезано, обновление глав небезопасно."
+                    )
                     scan_state["records"][relative] = state_record_for_scan(
                         video_id=video_id,
                         result="trimmed_skip",
                         remote_info=remote_info,
                     )
             else:
-                print(
+                get_console().info(
                     f"[TRIMMED] {relative}: видео уже обрезано; "
                     "безопасное обновление глав требует перекачивания."
                 )
@@ -1207,7 +1211,7 @@ def main() -> int:
             check_tracker.tick()
             continue
 
-        print(f"[PLAN] {relative}: {summarize_transition(current, target)}")
+        get_console().info(f"[PLAN] {relative}: {summarize_transition(current, target)}")
         planned.append((video_path, current, target))
         scan_state["records"][relative] = state_record_for_scan(
             video_id=video_id,
@@ -1234,8 +1238,8 @@ def main() -> int:
         private_or_unavailable=private_or_unavailable,
         other_errors=other_errors,
     )
-    print(f"[REPORT] План сохранён: {relative_path(root, report_path)}")
-    print(
+    get_console().info(f"[REPORT] План сохранён: {relative_path(root, report_path)}")
+    get_console().info(
         f"[SUMMARY] Актуальны: {up_to_date}; "
         f"к обновлению: {len(planned)}; "
         f"требуют перекачивания: {len(pending_redownloads) if args.apply else trimmed}; "
@@ -1253,8 +1257,13 @@ def main() -> int:
             clear_scan_state(root)
         return 1 if failed else 0
 
+    if planned:
+        get_console().warning(
+            f"Будет обновлено {len(planned)} файлов; "
+            f"перекачивание потребуется для {len(pending_redownloads)}."
+        )
     if planned and not confirm_apply(len(planned), args.yes):
-        print("[CANCEL] Обновление закладок не выполнялось. План сохранён для продолжения.")
+        get_console().warning("Обновление закладок не выполнялось. План сохранён для продолжения.")
         save_cache(root, metadata_cache_state)
         return 0
 
@@ -1274,7 +1283,7 @@ def main() -> int:
     total_updates = len(planned)
     apply_tracker = build_progress_tracker()
     for update_index, (video_path, current, target) in enumerate(planned, start=1):
-        print(
+        get_console().info(
             apply_tracker.line(
                 "APPLY", update_index, total_updates, relative_path(root, video_path)
             )
@@ -1304,7 +1313,7 @@ def main() -> int:
                     "result": "success",
                 },
             )
-            print(f"[UPDATED] {relative_path(root, video_path)}")
+            get_console().info(f"[UPDATED] {relative_path(root, video_path)}")
             apply_tracker.tick()
         except (OSError, RuntimeError) as error:
             failed += 1
@@ -1326,7 +1335,7 @@ def main() -> int:
                     "error": str(error),
                 },
             )
-            print(f"[ERROR] {relative_path(root, video_path)}: {error}")
+            get_console().error(f"{relative_path(root, video_path)}: {error}")
             apply_tracker.tick()
 
     redownloaded = 0
@@ -1335,7 +1344,9 @@ def main() -> int:
     for redownload_index, (video_path, video_id, relative, remote_info) in enumerate(
         pending_redownloads, start=1
     ):
-        print(redownload_tracker.line("REDOWNLOAD", redownload_index, total_redownloads, relative))
+        get_console().info(
+            redownload_tracker.line("REDOWNLOAD", redownload_index, total_redownloads, relative)
+        )
         success, error = redownload_video(
             video_path,
             video_id,
@@ -1361,7 +1372,7 @@ def main() -> int:
                     "result": "success",
                 },
             )
-            print(f"[UPDATED] {relative}: перекачано.")
+            get_console().info(f"[UPDATED] {relative}: перекачано.")
         else:
             failed += 1
             record = scan_state["records"].get(relative)
@@ -1380,7 +1391,7 @@ def main() -> int:
                     "error": error or "неизвестная ошибка",
                 },
             )
-            print(f"[ERROR] {relative}: {error}")
+            get_console().error(f"{relative}: {error}")
             redownload_tracker.tick()
 
     write_journal_event(
@@ -1394,7 +1405,7 @@ def main() -> int:
             "failed": failed,
         },
     )
-    print(
+    get_console().info(
         f"[SUMMARY] Обновлено глав: {updated}; "
         f"перекачано: {redownloaded}; ошибок: {failed}; запуск: {run_id}"
     )

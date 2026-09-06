@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 - Stage 1.3
+
+- Все команды переведены с compatibility `print` на `get_console()` и явные уровни вывода.
+- `--quiet` скрывает обычные сообщения, но не подтверждает операции и не скрывает предупреждения перед destructive prompt.
+- Unicode-safe writer перенесён в `Console.emit()`; прямые вызовы command-модулей безопасны для legacy stdout.
+
 ## 1.0.0 - Stage 1.1
 
 - Исправлен Unicode-вывод при прямом вызове команд в Windows-совместимом окружении.

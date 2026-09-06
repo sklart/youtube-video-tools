@@ -19,3 +19,7 @@
 - [x] CI, packaging, Ruff и example-конфигурация.
 - [x] Stage 1.1: cross-platform регрессии, Console, hardened doctor и packaging smoke test.
 - [x] Stage 1.2: safety quiet-подтверждений, дополнительные проверки временных файлов и cleanup CLI.
+- [x] Stage 1.3: unified Console, корректный quiet и Unicode-safe output.
+
+Stage 1 complete: modular architecture, safe state handling, cross-platform CI,
+typed source parsing, unified Console and reliable quiet semantics.

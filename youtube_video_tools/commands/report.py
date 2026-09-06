@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config as video_config
-from ..console import console_print as print
+from ..console import get_console
 from ..core import extract_filename_date
 from . import inventory
 
@@ -101,21 +101,21 @@ def main() -> int:
     args = parse_args()
     root = args.root.resolve()
     if not root.is_dir():
-        print(f"[ERROR] Корневая папка не найдена: {root}")
+        get_console().error(f"Корневая папка не найдена: {root}")
         return 2
 
     checked, issues = inspect_archive(root)
     for issue in issues:
-        print(f"[ISSUE] {issue.relative_path}: {', '.join(issue.reasons)}")
+        get_console().info(f"[ISSUE] {issue.relative_path}: {', '.join(issue.reasons)}")
 
     if args.output:
         output = args.output.resolve()
         try:
             write_report(output, issues)
         except OSError as error:
-            print(f"[ERROR] Не удалось записать {output}: {error}")
+            get_console().error(f"Не удалось записать {output}: {error}")
             return 2
-        print(f"[OK] CSV: {output}")
+        get_console().success(f"CSV: {output}")
 
     counters = {
         "без ID": sum(issue.missing_id for issue in issues),
@@ -125,5 +125,5 @@ def main() -> int:
         "без субтитров": sum(issue.missing_subtitles for issue in issues),
     }
     details = "; ".join(f"{name}: {count}" for name, count in counters.items())
-    print(f"[SUMMARY] Видео: {checked}; с проблемами: {len(issues)}; {details}")
+    get_console().info(f"[SUMMARY] Видео: {checked}; с проблемами: {len(issues)}; {details}")
     return 0

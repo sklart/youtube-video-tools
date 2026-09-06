@@ -9,7 +9,7 @@ from pathlib import Path
 from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
-from ..console import console_print as print
+from ..console import get_console
 from ..core import extract_filename_date, normalize_windows_name, path_selected
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError
@@ -134,11 +134,11 @@ def main() -> int:
     root = args.root.resolve()
 
     if args.cookies and not args.cookies.exists():
-        print(f"[ERROR] Cookies-файл не найден: {args.cookies}")
+        get_console().error(f"Cookies-файл не найден: {args.cookies}")
         return 2
 
     mode = "APPLY" if args.apply else "DRY-RUN"
-    print(f"[{mode}] Корневая папка: {root}")
+    get_console().info(f"[{mode}] Корневая папка: {root}")
 
     renamed = skipped = failed = 0
     metadata_cache_state = video_metadata_cache.load_cache(root)
@@ -160,7 +160,7 @@ def main() -> int:
             skipped += 1
             continue
         if existing_date and not valid_date:
-            print(f"[WARNING] Некорректная дата в имени будет заменена: {old_path}")
+            get_console().warning(f"Некорректная дата в имени будет заменена: {old_path}")
             title = re.sub(r"_\d{2}\.\d{2}\.\d{4}$", "", title)
 
         upload_date, error = get_upload_date(
@@ -171,7 +171,7 @@ def main() -> int:
             metadata_cache=metadata_cache_state,
         )
         if error:
-            print(f"[SKIP] {old_path}: {error}")
+            get_console().warning(f"{old_path}: {error}")
             failed += 1
             continue
 
@@ -182,11 +182,11 @@ def main() -> int:
         )
         new_path = old_path.with_name(new_name)
         if new_path.exists():
-            print(f"[SKIP] Уже существует: {new_path}")
+            get_console().info(f"[SKIP] Уже существует: {new_path}")
             skipped += 1
             continue
 
-        print(f"[{'RENAME' if args.apply else 'PLAN'}] {old_path} -> {new_path.name}")
+        get_console().info(f"[{'RENAME' if args.apply else 'PLAN'}] {old_path} -> {new_path.name}")
         if args.apply:
             assert run_id is not None
             source_value = relative_path(root, old_path)
@@ -206,7 +206,7 @@ def main() -> int:
                         "error": str(rename_error),
                     },
                 )
-                print(f"[ERROR] Не удалось переименовать {old_path}: {rename_error}")
+                get_console().error(f"Не удалось переименовать {old_path}: {rename_error}")
                 failed += 1
                 continue
             write_journal_event(
@@ -236,6 +236,7 @@ def main() -> int:
             },
         )
 
-    print(f"[SUMMARY] Запланировано/выполнено: {renamed}; пропущено: {skipped}; ошибок: {failed}")
+    summary = f"Запланировано/выполнено: {renamed}; пропущено: {skipped}; ошибок: {failed}"
+    (get_console().warning if failed else get_console().success)(summary)
     video_metadata_cache.save_cache(root, metadata_cache_state)
     return 1 if failed else 0

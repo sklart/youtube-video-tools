@@ -171,6 +171,7 @@ def synchronize_archive(
         return 0
 
     if not assume_yes:
+        console.warning(f"Будет удалено {len(plan.removed_ids)} записей из yt-dlp-archive.txt.")
         try:
             answer = input_fn("Удалить перечисленные ID из архива? [Y/n]: ")
         except (EOFError, KeyboardInterrupt):

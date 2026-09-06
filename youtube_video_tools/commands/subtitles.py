@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .. import config as video_config
 from ..config import config_section
-from ..console import console_print as print
+from ..console import get_console
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
@@ -86,14 +86,14 @@ def download_subtitles(
 ) -> int:
     source = parse_source_ref(video_path.name)
     if not source or source.source_type is not SourceType.YOUTUBE:
-        print(f"[SKIP] Не удалось найти ID: {video_path.name}")
+        get_console().info(f"[SKIP] Не удалось найти ID: {video_path.name}")
         return 0
 
     errors = 0
     url = f"https://www.youtube.com/watch?v={source.source_id}"
     for language in languages:
         if subtitle_exists(video_path, language):
-            print(f"[SKIP] Субтитры {language} уже есть: {video_path.name}")
+            get_console().info(f"[SKIP] Субтитры {language} уже есть: {video_path.name}")
             continue
 
         command = [
@@ -105,14 +105,14 @@ def download_subtitles(
             str(video_path.with_suffix(".%(ext)s")),
             url,
         ]
-        print(f"[DOWNLOAD] {language}: {video_path.name}")
+        get_console().info(f"[DOWNLOAD] {language}: {video_path.name}")
         try:
             result = YtDlpClient(yt_dlp, cookies_file=cookies).run(command, timeout=timeout)
             if result.returncode:
-                print(f"[ERROR] Не удалось скачать субтитры: код {result.returncode}")
+                get_console().error(f"Не удалось скачать субтитры: код {result.returncode}")
                 errors += 1
         except ExternalToolError as error:
-            print(f"[ERROR] {error}")
+            get_console().error(f"{error}")
             errors += 1
 
         if pause > 0:
@@ -123,16 +123,16 @@ def download_subtitles(
 def main() -> int:
     args = parse_args()
     if args.cookies and not args.cookies.exists():
-        print(f"[ERROR] Cookies-файл не найден: {args.cookies}")
+        get_console().error(f"Cookies-файл не найден: {args.cookies}")
         return 2
 
     errors = 0
     for folder_name in args.folders:
         folder = args.root.resolve() / folder_name
         if not folder.is_dir():
-            print(f"[SKIP] Папка не найдена: {folder}")
+            get_console().info(f"[SKIP] Папка не найдена: {folder}")
             continue
-        print(f"[FOLDER] {folder}")
+        get_console().info(f"[FOLDER] {folder}")
         for video_path in sorted(
             path
             for path in folder.iterdir()

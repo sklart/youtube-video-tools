@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from youtube_video_tools import cli as video_tools
 from youtube_video_tools.config import BASE_DIR, DEFAULT_CONFIG_PATH
-from youtube_video_tools.console import console_print
+from youtube_video_tools.console import get_console
 from youtube_video_tools.core import extract_filename_date, normalize_windows_name
 from youtube_video_tools.locking import ArchiveLock
 
@@ -130,9 +130,9 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_quiet_keeps_only_warnings_and_errors(self):
         def fake_main():
-            console_print("[SCAN] ordinary")
-            console_print("[WARNING] warning")
-            console_print("[ERROR] error")
+            get_console().info("ordinary")
+            get_console().warning("warning")
+            get_console().error("error")
             return 2
 
         fake_module = type(
@@ -324,7 +324,7 @@ class VideoToolsTests(unittest.TestCase):
 
         output = Cp1252Stream()
         with patch("sys.stdout", output):
-            console_print("Проверка Unicode")
+            get_console().info("Проверка Unicode")
         self.assertTrue(output.getvalue())
 
     def test_menu_runs_doctor(self):

@@ -36,9 +36,8 @@ class ConsoleTests(unittest.TestCase):
             Console(verbose=True).verbose("shown")
         self.assertEqual(output.getvalue(), "[VERBOSE] shown\n")
 
-    def test_legacy_fallback_does_not_duplicate_prefixes(self):
+    def test_legacy_fallback_is_raw_info_without_severity_guessing(self):
         output = StringIO()
         with redirect_stdout(output), use_console(Console()):
-            console_print("[ERROR] failed")
-            console_print("[CHECK] scanning")
-        self.assertEqual(output.getvalue(), "[ERROR] failed\n[PROGRESS] scanning\n")
+            console_print("legacy text")
+        self.assertEqual(output.getvalue(), "[INFO] legacy text\n")
