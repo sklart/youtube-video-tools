@@ -1,14 +1,11 @@
-import importlib
 import os
-import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
-
-download_yt_favorites = importlib.import_module("download_yt_favorites")
+from youtube_video_tools.commands import download as download_yt_favorites
 
 
 class DownloadMetadataTests(unittest.TestCase):
@@ -18,9 +15,7 @@ class DownloadMetadataTests(unittest.TestCase):
             output = []
             cookies = root / "cookies.txt"
             cookies.write_text("cookies", encoding="utf-8")
-            archive = root / "yt-dlp-archive.txt"
-            archive.write_text("", encoding="utf-8")
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             previous_cookies = os.environ.get("YOUTUBE_COOKIES_FILE")
             previous_ytdlp = os.environ.get("VIDEO_TOOLS_YT_DLP")
 
@@ -45,11 +40,13 @@ class DownloadMetadataTests(unittest.TestCase):
             try:
                 os.environ["YOUTUBE_COOKIES_FILE"] = str(cookies)
                 os.environ["VIDEO_TOOLS_YT_DLP"] = "yt-dlp"
-                video_tools.sys.argv = ["download_yt_favorites.py", "--root", str(root)]
-                with patch.object(download_yt_favorites.subprocess, "Popen", side_effect=fake_popen):
+                sys.argv = ["download_yt_favorites.py", "--root", str(root)]
+                with patch.object(
+                    download_yt_favorites.subprocess, "Popen", side_effect=fake_popen
+                ):
                     result = download_yt_favorites.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
                 if previous_cookies is None:
                     os.environ.pop("YOUTUBE_COOKIES_FILE", None)
                 else:

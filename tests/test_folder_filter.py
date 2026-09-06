@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
+from youtube_video_tools import cli as video_tools
+from youtube_video_tools.commands import inventory
+from youtube_video_tools.core import FOLDER_FILTER_ENV, resolve_folder_filter
 
 
 class FolderFilterTests(unittest.TestCase):
@@ -15,7 +17,7 @@ class FolderFilterTests(unittest.TestCase):
             (root / "Deep Space").mkdir()
             (root / "Other").mkdir()
 
-            selected = video_tools.resolve_folder_filter(
+            selected = resolve_folder_filter(
                 root,
                 ["deep*"],
                 None,
@@ -34,7 +36,7 @@ class FolderFilterTests(unittest.TestCase):
                 encoding="utf-8-sig",
             )
 
-            selected = video_tools.resolve_folder_filter(
+            selected = resolve_folder_filter(
                 root,
                 None,
                 folder_file,
@@ -54,14 +56,10 @@ class FolderFilterTests(unittest.TestCase):
             (ignored / "Two [lmnopqrst].mp4").write_bytes(b"2")
 
             with patch.dict(
-                video_tools.os.environ,
-                {
-                    video_tools.FOLDER_FILTER_ENV: json.dumps(
-                        ["Selected"]
-                    )
-                },
+                __import__("os").environ,
+                {FOLDER_FILTER_ENV: json.dumps(["Selected"])},
             ):
-                records = video_tools.inventory.collect_inventory(root)
+                records = inventory.collect_inventory(root)
 
             self.assertEqual(
                 [record.relative_path for record in records],

@@ -1,18 +1,15 @@
-import importlib
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from contextlib import redirect_stdout
-
-import video_tools
-
-update_bookmarks = importlib.import_module("update_bookmarks")
+from youtube_video_tools.commands import bookmarks as update_bookmarks
 
 
 class UpdateBookmarksTests(unittest.TestCase):
@@ -194,9 +191,9 @@ class UpdateBookmarksTests(unittest.TestCase):
             youtube_video.write_bytes(b"video")
             other_video.write_bytes(b"video")
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "update_bookmarks.py",
                     "--root",
                     str(root),
@@ -205,6 +202,8 @@ class UpdateBookmarksTests(unittest.TestCase):
 
                 def fake_run(cmd, **kwargs):
                     if cmd[0] == "ffprobe":
+                        if "stream=codec_type" in cmd:
+                            return CompletedProcess(cmd, 0, stdout="video\n", stderr="")
                         if "-show_entries" in cmd:
                             return CompletedProcess(
                                 cmd,
@@ -243,9 +242,11 @@ class UpdateBookmarksTests(unittest.TestCase):
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
-                report_text = (root / ".video-tools" / "bookmarks-plan.txt").read_text(encoding="utf-8")
+                report_text = (root / ".video-tools" / "bookmarks-plan.txt").read_text(
+                    encoding="utf-8"
+                )
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
         self.assertEqual(result, 0)
         self.assertIn("[PLAN] Video [abcdefghijk].mp4:", output.getvalue())
@@ -264,9 +265,9 @@ class UpdateBookmarksTests(unittest.TestCase):
             video = root / "Video [abcdefghijk].mp4"
             video.write_bytes(b"video")
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "update_bookmarks.py",
                     "--root",
                     str(root),
@@ -275,6 +276,8 @@ class UpdateBookmarksTests(unittest.TestCase):
 
                 def fake_run(cmd, **kwargs):
                     if cmd[0] == "ffprobe":
+                        if "stream=codec_type" in cmd:
+                            return CompletedProcess(cmd, 0, stdout="video\n", stderr="")
                         if "-show_entries" in cmd:
                             return CompletedProcess(cmd, 0, stdout="120.0\n", stderr="")
                         return CompletedProcess(
@@ -300,9 +303,11 @@ class UpdateBookmarksTests(unittest.TestCase):
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
-                report_text = (root / ".video-tools" / "bookmarks-plan.txt").read_text(encoding="utf-8")
+                report_text = (root / ".video-tools" / "bookmarks-plan.txt").read_text(
+                    encoding="utf-8"
+                )
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
         self.assertEqual(result, 1)
         self.assertIn("private/unavailable: 1", output.getvalue())
@@ -346,9 +351,9 @@ class UpdateBookmarksTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "update_bookmarks.py",
                     "--root",
                     str(root),
@@ -357,6 +362,8 @@ class UpdateBookmarksTests(unittest.TestCase):
 
                 def fake_run(cmd, **kwargs):
                     if cmd[0] == "ffprobe":
+                        if "stream=codec_type" in cmd:
+                            return CompletedProcess(cmd, 0, stdout="video\n", stderr="")
                         if "-show_entries" in cmd:
                             return CompletedProcess(cmd, 0, stdout="120.0\n", stderr="")
                         return CompletedProcess(
@@ -391,7 +398,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                 ):
                     result = update_bookmarks.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
         self.assertEqual(result, 0)
         self.assertEqual(run_mock.call_count, 3)
@@ -424,9 +431,9 @@ class UpdateBookmarksTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "update_bookmarks.py",
                     "--root",
                     str(root),
@@ -435,6 +442,8 @@ class UpdateBookmarksTests(unittest.TestCase):
 
                 def fake_run(cmd, **kwargs):
                     if cmd[0] == "ffprobe":
+                        if "stream=codec_type" in cmd:
+                            return CompletedProcess(cmd, 0, stdout="video\n", stderr="")
                         if "-show_entries" in cmd:
                             return CompletedProcess(
                                 cmd,
@@ -480,12 +489,11 @@ class UpdateBookmarksTests(unittest.TestCase):
                 ):
                     result = update_bookmarks.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
         self.assertEqual(result, 0)
         self.assertIn("[TRIMMED] Video [abcdefghijk].mp4", output.getvalue())
         self.assertNotIn("[PLAN] Video [abcdefghijk].mp4", output.getvalue())
-
 
     def test_rewrite_embedded_chapters_reports_ffmpeg_timeout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -504,15 +512,33 @@ class UpdateBookmarksTests(unittest.TestCase):
                         timeout=12,
                     )
 
+    def test_temporary_video_validation_requires_nonempty_video_stream(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "replacement.mp4"
+            video.write_bytes(b"")
+            valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
+            self.assertFalse(valid)
+            self.assertIn("пуст", error)
+
+            video.write_bytes(b"video")
+            with patch.object(
+                update_bookmarks.FFprobeClient,
+                "has_video_stream",
+                return_value=True,
+            ):
+                valid, error = update_bookmarks.validate_temporary_video(video, ffprobe="ffprobe")
+            self.assertTrue(valid)
+            self.assertIsNone(error)
+
     def test_main_apply_rewrites_when_confirmed(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             video = root / "Video [abcdefghijk].mp4"
             video.write_bytes(b"video")
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "update_bookmarks.py",
                     "--root",
                     str(root),
@@ -522,6 +548,8 @@ class UpdateBookmarksTests(unittest.TestCase):
 
                 def fake_run(cmd, **kwargs):
                     if cmd[0] == "ffprobe":
+                        if "stream=codec_type" in cmd:
+                            return CompletedProcess(cmd, 0, stdout="video\n", stderr="")
                         if "-show_entries" in cmd:
                             return CompletedProcess(
                                 cmd,
@@ -567,7 +595,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                 ):
                     result = update_bookmarks.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
         self.assertEqual(result, 0)
         self.assertIn("[APPLY] 1/1 Video [abcdefghijk].mp4 (ETA ", output.getvalue())

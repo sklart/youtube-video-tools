@@ -1,20 +1,19 @@
-import importlib
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
-
-video_doctor = importlib.import_module("video_doctor")
-from video_doctor import (
+from youtube_video_tools import cli
+from youtube_video_tools.commands import doctor as video_doctor
+from youtube_video_tools.commands.doctor import (
     check_command,
     check_root,
     doctor_exit_code,
     load_and_check_config,
     run_doctor,
 )
-
 
 VALID_CONFIG = """
 [paths]
@@ -44,15 +43,16 @@ class VideoDoctorTests(unittest.TestCase):
             )
 
             with patch(
-                "video_doctor.check_command",
-                side_effect=lambda name, command, version_args: (
-                    video_doctor.CheckResult(name, "ok", command)
+                "youtube_video_tools.commands.doctor.check_command",
+                side_effect=lambda name, command, version_args: video_doctor.CheckResult(
+                    name, "ok", command
                 ),
             ):
                 results = run_doctor(root, config)
 
             self.assertEqual(doctor_exit_code(results), 0)
             self.assertFalse(any(result.status == "error" for result in results))
+            self.assertEqual([result.name for result in results].count("ffmpeg"), 1)
 
     def test_invalid_toml_is_reported(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -85,7 +85,7 @@ max_retries = "many"
             self.assertIn("целым числом", result.message)
 
     def test_missing_command_is_reported(self):
-        with patch("video_doctor.shutil.which", return_value=None):
+        with patch("youtube_video_tools.commands.doctor.shutil.which", return_value=None):
             result = check_command("tool", "missing-tool", ["--version"])
         self.assertEqual(result.status, "error")
 
@@ -95,6 +95,23 @@ max_retries = "many"
             result = check_root(root)
             self.assertIn(result.status, {"ok", "warning"})
             self.assertEqual(list(root.iterdir()), [])
+
+    def test_quiet_keeps_warning_from_doctor(self):
+        warning = video_doctor.CheckResult("Конфигурация", "warning", "не создан")
+        output = StringIO()
+        with (
+            patch.object(video_doctor, "run_doctor", return_value=[warning]),
+            redirect_stdout(output),
+        ):
+            result = cli.execute_command(
+                "doctor",
+                [],
+                root=Path("archive"),
+                config_path=Path("config.toml"),
+                quiet=True,
+            )
+        self.assertEqual(result, 0)
+        self.assertIn("[WARN] Конфигурация: не создан", output.getvalue())
 
 
 if __name__ == "__main__":

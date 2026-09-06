@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "youtube-video-tools"
+dynamic = ["version"]
+description = "Local maintenance tools for a downloaded video archive"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+video-tools = "youtube_video_tools.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["youtube_video_tools*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "youtube_video_tools.__version__"}
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".video-tools", ".test-temp"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

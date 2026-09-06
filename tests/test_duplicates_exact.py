@@ -1,10 +1,11 @@
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-import video_tools
+from youtube_video_tools.commands import duplicates
 
 
 class ExactDuplicateTests(unittest.TestCase):
@@ -24,7 +25,7 @@ class ExactDuplicateTests(unittest.TestCase):
             second.write_bytes(duplicate_bytes)
             unique.write_bytes(b"other-video")
 
-            groups = video_tools.find_duplicates.find_exact_duplicates(root)
+            groups = duplicates.find_exact_duplicates(root)
 
             self.assertEqual(len(groups), 1)
             size_bytes, digest, paths = groups[0]
@@ -41,13 +42,13 @@ class ExactDuplicateTests(unittest.TestCase):
             (root / "One [abcdefghijk].mp4").write_bytes(b"one")
 
             output = StringIO()
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = ["find_duplicates.py", "--root", str(root)]
+                sys.argv = ["find_duplicates.py", "--root", str(root)]
                 with redirect_stdout(output):
-                    result = video_tools.find_duplicates.main()
+                    result = duplicates.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
             self.assertEqual(result, 0)
             self.assertIn("[CHECK] Видеофайлов для проверки: 1", output.getvalue())

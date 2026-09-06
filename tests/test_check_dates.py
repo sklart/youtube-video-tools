@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import video_tools
+from youtube_video_tools.commands import dates
 
 
 class CheckDatesTests(unittest.TestCase):
@@ -17,9 +17,7 @@ class CheckDatesTests(unittest.TestCase):
             for path in (valid, missing, invalid, subtitle, script):
                 path.write_bytes(b"x")
 
-            checked, missing_dates, invalid_dates = (
-                video_tools.check_date.inspect_video_dates(root)
-            )
+            checked, missing_dates, invalid_dates = dates.inspect_video_dates(root)
 
             self.assertEqual(checked, 3)
             self.assertEqual(missing_dates, [missing])

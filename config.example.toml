@@ -1,11 +1,14 @@
+# Copy this file to config.toml and set local paths if necessary.
+
 [paths]
-cookies = "D:\\Download\\www.youtube.com_cookies.txt"
+# cookies = "C:\\path\\to\\youtube-cookies.txt"
 yt_dlp = "yt-dlp"
 ffprobe = "ffprobe"
+ffmpeg = "ffmpeg"
 
 [subtitles]
-folders = ["Deep Look"]
-languages = ["ru-en-US"]
+folders = []
+languages = ["ru", "en"]
 pause_seconds = 5
 
 [sorting]

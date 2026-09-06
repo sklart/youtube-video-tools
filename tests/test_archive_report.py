@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import video_tools
+from youtube_video_tools.commands import report as archive_report
 
 
 class ArchiveReportTests(unittest.TestCase):
@@ -15,28 +15,25 @@ class ArchiveReportTests(unittest.TestCase):
 
             complete = channel / "Complete_11.06.2026 [abcdefghijk].mp4"
             complete.write_bytes(b"video")
-            complete.with_name(
-                "Complete_11.06.2026 [abcdefghijk].ru.vtt"
-            ).write_text("subtitle", encoding="utf-8")
+            complete.with_name("Complete_11.06.2026 [abcdefghijk].ru.vtt").write_text(
+                "subtitle", encoding="utf-8"
+            )
 
             (channel / "No metadata.mkv").write_bytes(b"video")
-            (root / "Root_31.02.2026 [lmnopqrst].webm").write_bytes(b"video")
+            (root / "Root_31.02.2026 [lmnopqrstuv].webm").write_bytes(b"video")
 
-            checked, issues = video_tools.archive_report.inspect_archive(root)
+            checked, issues = archive_report.inspect_archive(root)
 
             self.assertEqual(checked, 3)
             self.assertEqual(len(issues), 2)
-            by_name = {
-                Path(issue.relative_path).name: issue
-                for issue in issues
-            }
+            by_name = {Path(issue.relative_path).name: issue for issue in issues}
             missing = by_name["No metadata.mkv"]
             self.assertTrue(missing.missing_id)
             self.assertTrue(missing.missing_date)
             self.assertFalse(missing.missing_author)
             self.assertTrue(missing.missing_subtitles)
 
-            invalid = by_name["Root_31.02.2026 [lmnopqrst].webm"]
+            invalid = by_name["Root_31.02.2026 [lmnopqrstuv].webm"]
             self.assertFalse(invalid.missing_id)
             self.assertFalse(invalid.missing_date)
             self.assertTrue(invalid.invalid_date)
@@ -45,7 +42,7 @@ class ArchiveReportTests(unittest.TestCase):
     def test_writes_csv_report(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            issue = video_tools.archive_report.ReportIssue(
+            issue = archive_report.ReportIssue(
                 relative_path="video.mp4",
                 missing_id=True,
                 missing_date=True,
@@ -55,7 +52,7 @@ class ArchiveReportTests(unittest.TestCase):
             )
             output = root / "report.csv"
 
-            video_tools.archive_report.write_report(output, [issue])
+            archive_report.write_report(output, [issue])
 
             with output.open(encoding="utf-8-sig", newline="") as csv_file:
                 rows = list(csv.DictReader(csv_file, delimiter=";"))

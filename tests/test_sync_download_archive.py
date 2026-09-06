@@ -1,12 +1,8 @@
-import importlib
 import tempfile
 import unittest
 from pathlib import Path
 
-import video_tools
-
-sync_download_archive = importlib.import_module("sync_download_archive")
-from sync_download_archive import (
+from youtube_video_tools.commands.archive_sync import (
     apply_sync_plan,
     build_sync_plan,
     synchronize_archive,
@@ -22,10 +18,7 @@ class SyncDownloadArchiveTests(unittest.TestCase):
             (channel / "Present [abcdefghijk].mp4").write_bytes(b"video")
             archive = root / "yt-dlp-archive.txt"
             archive.write_text(
-                "youtube abcdefghijk\n"
-                "youtube missing1234\n"
-                "rutube rutube-id\n"
-                "# comment\n",
+                "youtube abcdefghijk\nyoutube missing1234\nrutube rutube-id\n# comment\n",
                 encoding="utf-8",
             )
 

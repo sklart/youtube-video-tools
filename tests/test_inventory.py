@@ -1,12 +1,10 @@
 import csv
-import importlib
 import tempfile
 import unittest
 from pathlib import Path
 
-import video_tools
+from youtube_video_tools.commands import inventory
 
-inventory = importlib.import_module("inventory")
 collect_inventory = inventory.collect_inventory
 extract_date = inventory.extract_date
 extract_source = inventory.extract_source

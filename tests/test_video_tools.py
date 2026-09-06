@@ -5,7 +5,9 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
+from youtube_video_tools import cli as video_tools
+from youtube_video_tools.config import BASE_DIR, DEFAULT_CONFIG_PATH
+from youtube_video_tools.core import extract_filename_date, normalize_windows_name
 
 
 class VideoToolsTests(unittest.TestCase):
@@ -17,7 +19,7 @@ class VideoToolsTests(unittest.TestCase):
 
             fake_module = type("FakeModule", (), {"main": staticmethod(lambda: 0)})
             with patch.dict(
-                video_tools.INTERNAL_MODULES,
+                video_tools.COMMAND_MODULES,
                 {"resort": fake_module},
             ):
                 result = video_tools.main(
@@ -39,11 +41,11 @@ class VideoToolsTests(unittest.TestCase):
             config = root / "config.toml"
             config.write_text("", encoding="utf-8")
 
-            for command, module_name in video_tools.COMMAND_SCRIPTS.items():
+            for command in video_tools.COMMAND_MODULES:
                 received_argv = []
 
                 def fake_main():
-                    received_argv.extend(video_tools.sys.argv)
+                    received_argv.extend(__import__("sys").argv)
                     return 0
 
                 fake_module = type(
@@ -51,9 +53,12 @@ class VideoToolsTests(unittest.TestCase):
                     (),
                     {"main": staticmethod(fake_main)},
                 )
-                with self.subTest(command=command), patch.dict(
-                    video_tools.INTERNAL_MODULES,
-                    {module_name: fake_module},
+                with (
+                    self.subTest(command=command),
+                    patch.dict(
+                        video_tools.COMMAND_MODULES,
+                        {command: fake_module},
+                    ),
                 ):
                     result = video_tools.execute_command(
                         command,
@@ -73,10 +78,13 @@ class VideoToolsTests(unittest.TestCase):
             config.write_text("", encoding="utf-8")
 
             fake_module = type("FakeModule", (), {"main": staticmethod(lambda: 0)})
-            with patch.dict(
-                video_tools.INTERNAL_MODULES,
-                {"archive_report": fake_module},
-            ), patch("video_tools.execute_command", return_value=0) as execute:
+            with (
+                patch.dict(
+                    video_tools.COMMAND_MODULES,
+                    {"report": fake_module},
+                ),
+                patch("youtube_video_tools.cli.execute_command", return_value=0) as execute,
+            ):
                 result = video_tools.main(
                     [
                         "--root",
@@ -98,10 +106,13 @@ class VideoToolsTests(unittest.TestCase):
     def test_verbose_prints_effective_context(self):
         fake_module = type("FakeModule", (), {"main": staticmethod(lambda: 0)})
         output = StringIO()
-        with patch.dict(
-            video_tools.INTERNAL_MODULES,
-            {"check_date": fake_module},
-        ), redirect_stdout(output):
+        with (
+            patch.dict(
+                video_tools.COMMAND_MODULES,
+                {"dates": fake_module},
+            ),
+            redirect_stdout(output),
+        ):
             result = video_tools.execute_command(
                 "dates",
                 [],
@@ -128,10 +139,13 @@ class VideoToolsTests(unittest.TestCase):
             {"main": staticmethod(fake_main)},
         )
         output = StringIO()
-        with patch.dict(
-            video_tools.INTERNAL_MODULES,
-            {"check_date": fake_module},
-        ), redirect_stdout(output):
+        with (
+            patch.dict(
+                video_tools.COMMAND_MODULES,
+                {"dates": fake_module},
+            ),
+            redirect_stdout(output),
+        ):
             result = video_tools.execute_command(
                 "dates",
                 [],
@@ -147,21 +161,27 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_menu_runs_doctor(self):
         answers = iter(["1", "", "0"])
-        with patch("video_tools.execute_command", return_value=0) as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command", return_value=0) as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main([], input_fn=lambda _: next(answers))
 
         self.assertEqual(result, 0)
         execute.assert_called_once_with(
             "doctor",
             [],
-            root=video_tools.BASE_DIR.resolve(),
-            config_path=video_tools.DEFAULT_CONFIG_PATH.resolve(),
+            root=BASE_DIR.resolve(),
+            config_path=DEFAULT_CONFIG_PATH.resolve(),
         )
 
     def test_menu_returns_to_start_after_command(self):
         answers = iter(["1", "", "0"])
         prompts = []
-        with patch("video_tools.execute_command", return_value=0) as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command", return_value=0) as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main(
                 [],
                 input_fn=lambda prompt: prompts.append(prompt) or next(answers),
@@ -174,7 +194,10 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_menu_cancelled_rename_apply_does_not_run(self):
         answers = iter(["5", "no", "0"])
-        with patch("video_tools.execute_command") as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command") as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main([], input_fn=lambda _: next(answers))
 
         self.assertEqual(result, 0)
@@ -182,32 +205,41 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_menu_confirmed_rename_apply_runs(self):
         answers = iter(["5", "y", "", "0"])
-        with patch("video_tools.execute_command", return_value=0) as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command", return_value=0) as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main([], input_fn=lambda _: next(answers))
 
         self.assertEqual(result, 0)
         execute.assert_called_once_with(
             "rename",
             ["--apply"],
-            root=video_tools.BASE_DIR.resolve(),
-            config_path=video_tools.DEFAULT_CONFIG_PATH.resolve(),
+            root=BASE_DIR.resolve(),
+            config_path=DEFAULT_CONFIG_PATH.resolve(),
         )
 
     def test_menu_confirmed_rename_apply_runs_with_cyrillic_yes(self):
         answers = iter(["5", "д", "", "0"])
-        with patch("video_tools.execute_command", return_value=0) as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command", return_value=0) as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main([], input_fn=lambda _: next(answers))
 
         self.assertEqual(result, 0)
         execute.assert_called_once_with(
             "rename",
             ["--apply"],
-            root=video_tools.BASE_DIR.resolve(),
-            config_path=video_tools.DEFAULT_CONFIG_PATH.resolve(),
+            root=BASE_DIR.resolve(),
+            config_path=DEFAULT_CONFIG_PATH.resolve(),
         )
 
     def test_menu_exit(self):
-        with patch("video_tools.execute_command") as execute, redirect_stdout(StringIO()):
+        with (
+            patch("youtube_video_tools.cli.execute_command") as execute,
+            redirect_stdout(StringIO()),
+        ):
             result = video_tools.main([], input_fn=lambda _: "0")
 
         self.assertEqual(result, 0)
@@ -215,23 +247,21 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_all_actionable_menu_options_have_help(self):
         actionable = {
-            key
-            for key, (_, command, _) in video_tools.MENU_OPTIONS.items()
-            if command is not None
+            key for key, (_, command, _) in video_tools.MENU_OPTIONS.items() if command is not None
         }
         self.assertEqual(actionable, set(video_tools.MENU_HELP))
 
     def test_normalize_windows_name(self):
-        self.assertEqual(video_tools.normalize_windows_name("CON"), "_CON")
-        self.assertEqual(video_tools.normalize_windows_name("name. "), "name")
+        self.assertEqual(normalize_windows_name("CON"), "_CON")
+        self.assertEqual(normalize_windows_name("name. "), "name")
         self.assertEqual(
-            video_tools.normalize_windows_name(
+            normalize_windows_name(
                 "bad:name?.mp4",
                 preserve_extension=True,
             ),
             "bad_name_.mp4",
         )
-        long_name = video_tools.normalize_windows_name(
+        long_name = normalize_windows_name(
             ("x" * 200) + ".mp4",
             preserve_extension=True,
         )
@@ -240,25 +270,19 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_extract_filename_date_validates_calendar(self):
         self.assertEqual(
-            video_tools.extract_filename_date(
-                "Video_29.02.2024 [abcdefghijk].mp4"
-            ),
+            extract_filename_date("Video_29.02.2024 [abcdefghijk].mp4"),
             ("29.02.2024", True),
         )
         self.assertEqual(
-            video_tools.extract_filename_date(
-                "Video_29.02.2023 [abcdefghijk].mp4"
-            ),
+            extract_filename_date("Video_29.02.2023 [abcdefghijk].mp4"),
             ("29.02.2023", False),
         )
         self.assertEqual(
-            video_tools.extract_filename_date("Video [abcdefghijk].mp4"),
+            extract_filename_date("Video [abcdefghijk].mp4"),
             (None, False),
         )
         self.assertEqual(
-            video_tools.extract_filename_date(
-                "Video_15.06.2015 [abcdefghijk].ru.vtt"
-            ),
+            extract_filename_date("Video_15.06.2015 [abcdefghijk].ru.vtt"),
             ("15.06.2015", True),
         )
 

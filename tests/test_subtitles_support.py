@@ -1,9 +1,10 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
+from youtube_video_tools.commands import inventory, subtitles
 
 
 class SubtitleSupportTests(unittest.TestCase):
@@ -17,7 +18,7 @@ class SubtitleSupportTests(unittest.TestCase):
             video.write_bytes(b"video")
             subtitle.write_text("subtitle", encoding="utf-8")
 
-            records = video_tools.inventory.collect_inventory(root)
+            records = inventory.collect_inventory(root)
 
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].subtitle_count, 1)
@@ -31,9 +32,7 @@ class SubtitleSupportTests(unittest.TestCase):
             video.write_bytes(b"video")
             subtitle.write_text("subtitle", encoding="utf-8")
 
-            self.assertTrue(
-                video_tools.get_subtitles.subtitle_exists(video, "ru-en-US")
-            )
+            self.assertTrue(subtitles.subtitle_exists(video, "ru-en-US"))
 
     def test_get_subtitles_scans_non_mp4_video_extensions(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -46,9 +45,9 @@ class SubtitleSupportTests(unittest.TestCase):
             cookies.write_text("cookie", encoding="utf-8")
 
             captured = []
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "get_subtitles.py",
                     "--root",
                     str(root),
@@ -59,16 +58,19 @@ class SubtitleSupportTests(unittest.TestCase):
                     "--cookies",
                     str(cookies),
                 ]
-                with patch(
-                    "subprocess.run",
-                    side_effect=lambda cmd, **kwargs: captured.append(cmd[-1]),
-                ), patch(
-                    "time.sleep",
-                    return_value=None,
+                with (
+                    patch(
+                        "subprocess.run",
+                        side_effect=lambda cmd, **kwargs: captured.append(cmd[-1]),
+                    ),
+                    patch(
+                        "time.sleep",
+                        return_value=None,
+                    ),
                 ):
-                    result = video_tools.get_subtitles.main()
+                    result = subtitles.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
             self.assertEqual(result, 0)
             self.assertEqual(captured, ["https://www.youtube.com/watch?v=abcdefghijk"])

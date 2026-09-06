@@ -1,4 +1,3 @@
-import importlib
 import subprocess
 import sys
 import tempfile
@@ -6,10 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
-
-rename_files = importlib.import_module("rename_files")
-read_journal = importlib.import_module("video_journal").read_journal
+from youtube_video_tools.commands import rename as rename_files
+from youtube_video_tools.journal import read_journal
 
 
 class RenameJournalTests(unittest.TestCase):
@@ -48,9 +45,7 @@ class RenameJournalTests(unittest.TestCase):
             self.assertTrue(destination.exists())
 
             events = read_journal(root)
-            rename_event = next(
-                event for event in events if event.get("event") == "rename"
-            )
+            rename_event = next(event for event in events if event.get("event") == "rename")
             self.assertEqual(rename_event["source"], source.name)
             self.assertEqual(rename_event["destination"], destination.name)
             self.assertEqual(rename_event["result"], "success")

@@ -1,19 +1,16 @@
-# Allow-list: only source code, documentation, and tests belong in Git.
-*
-!.gitignore
-!README.md
-!TODO.md
-!config.toml
-!video_tools.py
-!video_tools.bat
-!tests/
-!tests/**
-
-# Archive state must never be committed.
-yt-dlp-archive.txt*
-.video-tools/
 __pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
 .test-temp/
+
+config.toml
+.video-tools/
+yt-dlp-archive.txt*
+downloaded.txt
+errors.log
+
 *.info.json
 *.mp4
 *.mkv
@@ -25,3 +22,6 @@ __pycache__/
 *.vtt
 *.srt
 *.ass
+
+inventory*.csv
+archive-report*.csv

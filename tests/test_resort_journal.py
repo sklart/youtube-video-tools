@@ -1,5 +1,5 @@
 import json
-import importlib
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -7,10 +7,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import video_tools
-
-resort = importlib.import_module("resort")
-from resort import (
+from youtube_video_tools.commands import resort
+from youtube_video_tools.commands.resort import (
     apply_move_plan,
     confirm_apply,
     find_last_undoable_run,
@@ -31,22 +29,25 @@ class ResortJournalTests(unittest.TestCase):
             video = root / "Video [abcdefghijk].mkv"
             video.write_bytes(b"video")
 
-            previous_argv = video_tools.sys.argv
+            previous_argv = sys.argv
             try:
-                video_tools.sys.argv = [
+                sys.argv = [
                     "resort.py",
                     "--root",
                     str(root),
                     "--dry-run",
                 ]
-                with patch.object(
-                    video_tools.resort,
-                    "get_uploader",
-                    return_value="Channel",
-                ), redirect_stdout(StringIO()):
-                    result = video_tools.resort.main()
+                with (
+                    patch.object(
+                        resort,
+                        "get_uploader",
+                        return_value="Channel",
+                    ),
+                    redirect_stdout(StringIO()),
+                ):
+                    result = resort.main()
             finally:
-                video_tools.sys.argv = previous_argv
+                sys.argv = previous_argv
 
             self.assertEqual(result, 0)
 
