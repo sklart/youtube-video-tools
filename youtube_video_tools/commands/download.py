@@ -32,9 +32,13 @@ def main() -> int:
     archive_file = root / "yt-dlp-archive.txt"
     output_template = root / "%(uploader)s" / "%(title)s_%(upload_date>%d.%m.%Y)s [%(id)s].%(ext)s"
 
-    if not cookies_file or not cookies_file.exists():
-        get_console().error(f"Cookies-файл не найден: {cookies_file}")
+    if not cookies_file or not cookies_file.is_file():
+        get_console().error(
+            f"Cookies-файл не найден или не настроен: {cookies_file or 'путь не указан'}. "
+            "Укажите путь к файлу (не каталогу) в config.toml или YOUTUBE_COOKIES_FILE."
+        )
         return 2
+    get_console().info(f"Cookies-файл: {cookies_file}")
 
     if Settings.from_mapping(config).download.sync_archive_before_download:
         get_console().info("[SYNC] Проверка yt-dlp-archive.txt по локальным видео...")
@@ -72,9 +76,28 @@ def main() -> int:
     ]
 
     renderer = DownloadProgressRenderer(get_console())
+    auth_hint_shown = False
+
+    def show_line(line: str) -> None:
+        nonlocal auth_hint_shown
+        renderer.on_line(line)
+        message = line.casefold()
+        if (
+            not auth_hint_shown
+            and "error:" in message
+            and "[youtube:tab] wl:" in message
+            and "playlist does not exist" in message
+        ):
+            auth_hint_shown = True
+            get_console().warning(
+                f"YouTube не предоставил доступ к «Смотреть позже». Cookies-файл: {cookies_file}. "
+                "Наличие файла не подтверждает авторизацию: проверьте аккаунт и обновите cookies. "
+                "Это сообщение YouTube само по себе не означает, что файл cookies отсутствует."
+            )
+
     try:
         result = YtDlpClient(yt_dlp, cookies_file=cookies_file).stream(
-            [*renderer.arguments(), *arguments], on_line=renderer.on_line
+            [*renderer.arguments(), *arguments], on_line=show_line
         )
     except ExternalToolError as error:
         renderer.on_line(f"ERROR: {error}")
