@@ -88,7 +88,7 @@ def redownload_video(
             temp_output.unlink(missing_ok=True)
             return False, f"временный файл не прошёл проверку: {error}"
         temp_output.replace(video_path)
-        renderer.console.success("Видео успешно заменено")
+        renderer.console.finish_live("✓ Видео успешно заменено")
         return True, None
     finally:
         renderer.close()

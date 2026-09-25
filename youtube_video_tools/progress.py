@@ -254,9 +254,12 @@ class DownloadProgressRenderer:
             key = (event.video_id or event.title, event.playlist_index)
             if key[0] and key not in self.completed:
                 self.completed.add(key)
-                self.console.finish_live(
-                    f"✓ {self.label(event)}{'Файл скачан' if self.redownload else 'Готово'} │ {event.title or event.video_id}"
-                )
+                if self.redownload:
+                    self.console.clear_live()
+                else:
+                    self.console.finish_live(
+                        f"✓ {self.label(event)}Готово │ {event.title or event.video_id}"
+                    )
         else:
             text = clean_text(line)
             if re.match(r"^(?:ERROR:|\[error\])", text, re.IGNORECASE):
