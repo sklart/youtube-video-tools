@@ -4,12 +4,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import rename as rename_files
 from youtube_video_tools.journal import read_journal
 from youtube_video_tools.services.process import ProcessResult
 
 
-class RenameJournalTests(unittest.TestCase):
+class RenameJournalTests(IsolatedTestCase):
     def test_apply_writes_successful_rename_to_journal(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

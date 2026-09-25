@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands.archive_sync import (
     apply_sync_plan,
     build_sync_plan,
@@ -9,7 +10,7 @@ from youtube_video_tools.commands.archive_sync import (
 )
 
 
-class SyncDownloadArchiveTests(unittest.TestCase):
+class SyncDownloadArchiveTests(IsolatedTestCase):
     def test_plan_removes_only_missing_youtube_ids(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

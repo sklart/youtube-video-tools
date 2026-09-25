@@ -7,6 +7,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import resort
 from youtube_video_tools.commands.resort import (
     apply_move_plan,
@@ -22,7 +23,7 @@ from youtube_video_tools.commands.resort import (
 )
 
 
-class ResortJournalTests(unittest.TestCase):
+class ResortJournalTests(IsolatedTestCase):
     def test_main_scans_non_mp4_video_in_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

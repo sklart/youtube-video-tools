@@ -1,5 +1,4 @@
 import json
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -9,10 +8,12 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import bookmarks as update_bookmarks
+from youtube_video_tools.services import process
 
 
-class UpdateBookmarksTests(unittest.TestCase):
+class UpdateBookmarksTests(IsolatedTestCase):
     def test_normalize_chapters_supports_ffprobe_and_yt_dlp_shapes(self):
         chapters = update_bookmarks.normalize_chapters(
             [
@@ -168,7 +169,7 @@ class UpdateBookmarksTests(unittest.TestCase):
         ]
 
         with (
-            patch.object(subprocess, "run", side_effect=responses) as run_mock,
+            patch.object(process, "run", side_effect=responses) as run_mock,
             patch.object(update_bookmarks.time, "sleep") as sleep_mock,
             redirect_stdout(StringIO()),
         ):
@@ -242,7 +243,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected command: {cmd}")
 
                 with (
-                    patch.object(subprocess, "run", side_effect=fake_run),
+                    patch.object(process, "run", side_effect=fake_run),
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
@@ -306,7 +307,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected command: {cmd}")
 
                 with (
-                    patch.object(subprocess, "run", side_effect=fake_run),
+                    patch.object(process, "run", side_effect=fake_run),
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
@@ -345,9 +346,11 @@ class UpdateBookmarksTests(unittest.TestCase):
                 json.dumps(
                     {
                         "mode": "dry-run",
+                        "schema_version": update_bookmarks.SCAN_SCHEMA_VERSION,
                         "scan_complete": False,
                         "records": {
                             "Video [abcdefghijk].mp4": {
+                                **update_bookmarks.file_identity(root, video, "abcdefghijk"),
                                 "video_id": "abcdefghijk",
                                 "result": "retry_later",
                                 "error": "rate-limited by YouTube",
@@ -400,7 +403,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected command: {cmd}")
 
                 with (
-                    patch.object(subprocess, "run", side_effect=fake_run) as run_mock,
+                    patch.object(process, "run", side_effect=fake_run) as run_mock,
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
@@ -491,7 +494,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected command: {cmd}")
 
                 with (
-                    patch.object(subprocess, "run", side_effect=fake_run),
+                    patch.object(process, "run", side_effect=fake_run),
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()
@@ -507,9 +510,9 @@ class UpdateBookmarksTests(unittest.TestCase):
             video = Path(temp_dir) / "Video [abcdefghijk].mp4"
             video.write_bytes(b"video")
             with patch.object(
-                subprocess,
+                process,
                 "run",
-                side_effect=subprocess.TimeoutExpired(["ffmpeg"], 12),
+                side_effect=process.ExternalToolError("таймаут (12 с): ffmpeg"),
             ):
                 with self.assertRaisesRegex(RuntimeError, "ffmpeg превысил таймаут"):
                     update_bookmarks.rewrite_embedded_chapters(
@@ -658,7 +661,7 @@ class UpdateBookmarksTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected command: {cmd}")
 
                 with (
-                    patch.object(subprocess, "run", side_effect=fake_run),
+                    patch.object(process, "run", side_effect=fake_run),
                     redirect_stdout(output),
                 ):
                     result = update_bookmarks.main()

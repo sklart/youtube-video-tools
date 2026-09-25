@@ -2,10 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import dates
 
 
-class CheckDatesTests(unittest.TestCase):
+class CheckDatesTests(IsolatedTestCase):
     def test_checks_only_video_files_and_separates_invalid_dates(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

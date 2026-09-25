@@ -4,11 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import inventory, subtitles
 from youtube_video_tools.services.process import ProcessResult
 
 
-class SubtitleSupportTests(unittest.TestCase):
+class SubtitleSupportTests(IsolatedTestCase):
     def test_inventory_counts_ass_subtitles(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

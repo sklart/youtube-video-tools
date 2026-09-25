@@ -3,11 +3,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cache as video_metadata_cache
 from youtube_video_tools.commands import duplicates, rename, resort
 
 
-class MetadataCacheTests(unittest.TestCase):
+class MetadataCacheTests(IsolatedTestCase):
     def test_rename_uses_cached_upload_date(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -1,11 +1,11 @@
-import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.console import Console, Level, console_print, use_console
 
 
-class ConsoleTests(unittest.TestCase):
+class ConsoleTests(IsolatedTestCase):
     def test_exact_output_has_one_prefix_per_level(self):
         output = StringIO()
         console = Console()

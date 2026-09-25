@@ -5,10 +5,11 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import duplicates
 
 
-class ExactDuplicateTests(unittest.TestCase):
+class ExactDuplicateTests(IsolatedTestCase):
     def test_finds_exact_duplicates_by_size_and_hash(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

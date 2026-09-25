@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .process import ProcessResult, run
+from . import process
+from .process import ProcessResult
 
 
 class FFmpegClient:
@@ -12,7 +13,7 @@ class FFmpegClient:
         self.executable = executable
 
     def run(self, arguments: list[str], *, timeout: float = 90) -> ProcessResult:
-        return run([self.executable, *arguments], timeout=timeout)
+        return process.run([self.executable, *arguments], timeout=timeout)
 
     def version(self) -> ProcessResult:
         return self.run(["-version"], timeout=15)
@@ -23,7 +24,7 @@ class FFprobeClient:
         self.executable = executable
 
     def run(self, arguments: list[str], *, timeout: float = 30) -> ProcessResult:
-        return run([self.executable, *arguments], timeout=timeout)
+        return process.run([self.executable, *arguments], timeout=timeout)
 
     def version(self) -> ProcessResult:
         return self.run(["-version"], timeout=15)

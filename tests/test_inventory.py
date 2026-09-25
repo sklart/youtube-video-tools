@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import inventory
 
 collect_inventory = inventory.collect_inventory
@@ -11,7 +12,7 @@ extract_source = inventory.extract_source
 write_inventory = inventory.write_inventory
 
 
-class InventoryTests(unittest.TestCase):
+class InventoryTests(IsolatedTestCase):
     def test_collects_metadata_and_related_subtitles(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .process import ProcessResult, run, run_stream
+from . import process
+from .process import ProcessResult, run_stream
 
 
 class YtDlpClient:
@@ -17,7 +18,7 @@ class YtDlpClient:
         if self.cookies_file and self.cookies_file.is_file():
             command.extend(["--cookies", str(self.cookies_file)])
         command.extend(arguments)
-        return run(command, timeout=timeout)
+        return process.run(command, timeout=timeout)
 
     def version(self) -> ProcessResult:
         return self.run(["--version"], timeout=15)

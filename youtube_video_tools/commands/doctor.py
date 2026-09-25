@@ -50,85 +50,10 @@ def load_and_check_config(config_path: Path) -> tuple[dict[str, Any], CheckResul
     except (OSError, tomllib.TOMLDecodeError) as error:
         return {}, CheckResult("Конфигурация", "error", str(error))
 
-    errors = []
-    paths = config.get("paths", {})
-    if not isinstance(paths, dict):
-        errors.append("[paths] должна быть таблицей")
-    else:
-        for key in ("cookies", "yt_dlp", "ffprobe", "ffmpeg"):
-            if key in paths and (not isinstance(paths[key], str) or not paths[key].strip()):
-                errors.append(f"paths.{key} должен быть непустой строкой")
-
-    subtitles = config.get("subtitles", {})
-    if not isinstance(subtitles, dict):
-        errors.append("[subtitles] должна быть таблицей")
-    else:
-        for key in ("folders", "languages"):
-            value = subtitles.get(key, [])
-            if not isinstance(value, list) or not all(
-                isinstance(item, str) and item for item in value
-            ):
-                errors.append(f"subtitles.{key} должен быть списком строк")
-        if "pause_seconds" in subtitles and (
-            not isinstance(subtitles["pause_seconds"], (int, float))
-            or isinstance(subtitles["pause_seconds"], bool)
-            or subtitles["pause_seconds"] < 0
-        ):
-            errors.append("subtitles.pause_seconds должен быть неотрицательным числом")
-
-    sorting = config.get("sorting", {})
-    if not isinstance(sorting, dict):
-        errors.append("[sorting] должна быть таблицей")
-    else:
-        max_retries = sorting.get("max_retries", 1)
-        if not isinstance(max_retries, int) or isinstance(max_retries, bool):
-            errors.append("sorting.max_retries должен быть целым числом")
-        elif max_retries < 1:
-            errors.append("sorting.max_retries должен быть не меньше 1")
-        for key in ("pause_seconds",):
-            if key in sorting and (
-                not isinstance(sorting[key], (int, float))
-                or isinstance(sorting[key], bool)
-                or sorting[key] < 0
-            ):
-                errors.append(f"sorting.{key} должен быть неотрицательным числом")
-        if "allow_unknown" in sorting and not isinstance(sorting["allow_unknown"], bool):
-            errors.append("sorting.allow_unknown должен быть логическим значением")
-
-    download = config.get("download", {})
-    if not isinstance(download, dict):
-        errors.append("[download] должна быть таблицей")
-    elif "sync_archive_before_download" in download and not isinstance(
-        download["sync_archive_before_download"], bool
-    ):
-        errors.append("download.sync_archive_before_download должен быть логическим значением")
-
-    bookmarks = config.get("bookmarks", {})
-    if not isinstance(bookmarks, dict):
-        errors.append("[bookmarks] должна быть таблицей")
-    else:
-        for key in ("pause_seconds", "retry_backoff_seconds"):
-            if key in bookmarks and (
-                not isinstance(bookmarks[key], (int, float))
-                or isinstance(bookmarks[key], bool)
-                or bookmarks[key] < 0
-            ):
-                errors.append(f"bookmarks.{key} должен быть неотрицательным числом")
-        if "max_retries" in bookmarks and (
-            not isinstance(bookmarks["max_retries"], int)
-            or isinstance(bookmarks["max_retries"], bool)
-            or bookmarks["max_retries"] < 1
-        ):
-            errors.append("bookmarks.max_retries должен быть целым числом не меньше 1")
-        if "ffmpeg_timeout_seconds" in bookmarks and (
-            not isinstance(bookmarks["ffmpeg_timeout_seconds"], int)
-            or isinstance(bookmarks["ffmpeg_timeout_seconds"], bool)
-            or bookmarks["ffmpeg_timeout_seconds"] <= 0
-        ):
-            errors.append("bookmarks.ffmpeg_timeout_seconds должен быть целым числом больше 0")
-
-    if errors:
-        return config, CheckResult("Конфигурация", "error", "; ".join(errors))
+    try:
+        video_config.Settings.from_mapping(config)
+    except ValueError as error:
+        return config, CheckResult("Конфигурация", "error", str(error))
     return config, CheckResult("Конфигурация", "ok", str(config_path))
 
 

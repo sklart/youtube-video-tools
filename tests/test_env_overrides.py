@@ -4,11 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cli as video_tools
 from youtube_video_tools import config as video_config
 
 
-class EnvironmentOverrideTests(unittest.TestCase):
+class EnvironmentOverrideTests(IsolatedTestCase):
     def test_configured_path_prefers_environment(self):
         config = {"paths": {"cookies": "from-config.txt"}}
         with patch.dict(os.environ, {"YOUTUBE_COOKIES_FILE": "from-env.txt"}):

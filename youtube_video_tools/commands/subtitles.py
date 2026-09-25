@@ -5,11 +5,11 @@ import time
 from pathlib import Path
 
 from .. import config as video_config
-from ..config import config_section
 from ..console import get_console
 from ..models import SourceType, parse_source_ref
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
+from ..settings import Settings
 from . import inventory
 
 BASE_DIR = video_config.BASE_DIR
@@ -24,7 +24,7 @@ SUBTITLE_EXTENSIONS = inventory.SUBTITLE_EXTENSIONS
 
 def parse_args() -> argparse.Namespace:
     config = load_config()
-    subtitle_config = config_section(config, "subtitles")
+    subtitle_config = Settings.from_mapping(config).subtitles
 
     parser = argparse.ArgumentParser(description="Скачивает автосубтитры к видео.")
     parser.add_argument("--root", type=Path, default=BASE_DIR)
@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--pause",
         type=float,
-        default=float(subtitle_config.get("pause_seconds", 5)),
+        default=subtitle_config.pause_seconds,
     )
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument(
@@ -52,8 +52,8 @@ def parse_args() -> argparse.Namespace:
         default=configured_path(config, "cookies", env_name="YOUTUBE_COOKIES_FILE"),
     )
     args = parser.parse_args()
-    args.folders = args.folders or list(subtitle_config.get("folders", ["Deep Look"]))
-    args.languages = args.languages or list(subtitle_config.get("languages", ["ru-en-US"]))
+    args.folders = args.folders or list(subtitle_config.folders)
+    args.languages = args.languages or list(subtitle_config.languages)
     args.yt_dlp = configured_command(config, "yt_dlp", "yt-dlp")
     return args
 

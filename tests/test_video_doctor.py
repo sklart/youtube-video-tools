@@ -5,6 +5,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cli
 from youtube_video_tools.commands import doctor as video_doctor
 from youtube_video_tools.commands.doctor import (
@@ -30,7 +31,7 @@ max_retries = 3
 """
 
 
-class VideoDoctorTests(unittest.TestCase):
+class VideoDoctorTests(IsolatedTestCase):
     def test_valid_environment_without_real_commands(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

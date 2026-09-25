@@ -5,13 +5,14 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cli
 from youtube_video_tools.commands import resolution
 from youtube_video_tools.console import get_console
 from youtube_video_tools.services.process import ProcessResult
 
 
-class QuietFailureTests(unittest.TestCase):
+class QuietFailureTests(IsolatedTestCase):
     def test_dates_quiet_shows_warning_for_missing_date(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

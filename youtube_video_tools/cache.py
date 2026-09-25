@@ -4,6 +4,7 @@ import copy
 import json
 from pathlib import Path
 
+from .config import state_directory
 from .state import atomic_write_json
 
 CACHE_FILE_NAME = "yt-dlp-cache.json"
@@ -11,7 +12,7 @@ JOURNAL_DIR_NAME = ".video-tools"
 
 
 def cache_path(root: Path) -> Path:
-    return root / JOURNAL_DIR_NAME / CACHE_FILE_NAME
+    return state_directory(root) / CACHE_FILE_NAME
 
 
 def load_cache(root: Path) -> dict:

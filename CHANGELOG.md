@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased - Stabilization Before Stage 2
+
+- Resume SponsorBlock привязан к версии схемы, ID, относительному пути, размеру и mtime_ns; перед apply идентичность проверяется повторно.
+- Единый relocated state directory используется журналом, кэшем, lock, планом SponsorBlock и preflight/error log пересортировки.
+- Явные уровни READ_ONLY / STATE_WRITE / ARCHIVE_WRITE; CLI блокирует конкурирующие записи кэша, отчётов и субтитров.
+- Unit-тесты изолированы от пользовательского config и переменных VIDEO_TOOLS/YOUTUBE_COOKIES; добавлена проверка четырёх layout/config сочетаний.
+- Журнал синхронизируется через fsync, допускает оборванный хвост и запрещает запись при повреждении середины.
+- Общие process helpers очищают процесс и каналы на timeout/cancel; перекачивание очищает временные файлы в finally.
+- Добавлены AppContext, CommandResult и reusable dates.run(options, context); остальные команды сохраняют прежний адаптер.
+- Bookmarks разделён на scanner, planner, state, rewriter, redownload без изменения алгоритма глав.
+- Общие dataclass Settings валидируют типы, диапазоны, списки и пустые строки; ошибки TOML диагностируются без traceback CLI.
+- Добавлены правила .gitattributes без массовой renormalize-операции.
+
 ## 1.0.0 - Stage 1.3
 
 - Все команды переведены с compatibility `print` на `get_console()` и явные уровни вывода.

@@ -5,8 +5,11 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = BASE_DIR / "config.toml"
+from .settings import ConfigError, Settings
+
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = PROJECT_DIR.parent if PROJECT_DIR.name == "_video_tools" else PROJECT_DIR
+DEFAULT_CONFIG_PATH = PROJECT_DIR / "config.toml"
 CONFIG_ENV_NAME = "VIDEO_TOOLS_CONFIG"
 ROOT_ENV_NAME = "VIDEO_TOOLS_ROOT"
 PATH_ENV_NAMES = {
@@ -15,6 +18,13 @@ PATH_ENV_NAMES = {
     "ffprobe": "VIDEO_TOOLS_FFPROBE",
     "ffmpeg": "VIDEO_TOOLS_FFMPEG",
 }
+
+
+def state_directory(root: Path) -> Path:
+    """Keep the local archive state beside the relocated application."""
+    if PROJECT_DIR != BASE_DIR and root.resolve() == BASE_DIR.resolve():
+        return PROJECT_DIR / ".video-tools"
+    return root / ".video-tools"
 
 
 def env_text(env_name: str | None) -> str | None:
@@ -45,8 +55,13 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if not path.exists():
         return {}
 
-    with path.open("rb") as config_file:
-        return tomllib.load(config_file)
+    try:
+        with path.open("rb") as config_file:
+            config = tomllib.load(config_file)
+    except tomllib.TOMLDecodeError as error:
+        raise ConfigError(f"Некорректный TOML в {path}: {error}") from error
+    Settings.from_mapping(config)
+    return config
 
 
 def config_section(config: dict[str, Any], name: str) -> dict[str, Any]:

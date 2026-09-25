@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .access import AccessMode, command_access
+from .api import AppContext
 from .commands import (
     archive_sync,
     bookmarks,
@@ -27,6 +29,7 @@ from .config import CONFIG_ENV_NAME, default_config_path, default_root_path
 from .console import Console, configure_stdout, use_console
 from .core import FOLDER_FILTER_ENV, is_affirmative_reply, resolve_folder_filter
 from .locking import ArchiveLock, ArchiveLockedError
+from .settings import ConfigError
 
 COMMAND_MODULES = {
     "download": download,
@@ -151,13 +154,29 @@ def execute_command(
         if arguments:
             console.error("Команда doctor не принимает дополнительные аргументы.")
             return 2
-        results = doctor.run_doctor(root, config_path)
+        try:
+            with ArchiveLock(root):
+                results = doctor.run_doctor(root, config_path)
+        except (ArchiveLockedError, OSError) as error:
+            console.error(str(error))
+            return 1
         doctor.print_results(results, console=console)
         return doctor.doctor_exit_code(results)
     command_arguments = ["--root", str(root), *arguments]
     if command_name == "subtitles" and folders:
         for folder in folders:
             command_arguments.extend(["--folder", folder])
+    if command_name == "dates" and hasattr(COMMAND_MODULES[command_name], "run"):
+        module = COMMAND_MODULES[command_name]
+        options = module.parse_args(command_arguments)
+        try:
+            return module.run(
+                module.Options(folders=folders),
+                AppContext(root=options.root.resolve(), console=console),
+            ).exit_code
+        except OSError as error:
+            console.error(str(error))
+            return 2
     previous_argv = sys.argv
     previous_config = os.environ.get(CONFIG_ENV_NAME)
     previous_folders = os.environ.get(FOLDER_FILTER_ENV)
@@ -166,16 +185,15 @@ def execute_command(
         os.environ[FOLDER_FILTER_ENV] = json.dumps(folders, ensure_ascii=False)
     else:
         os.environ.pop(FOLDER_FILTER_ENV, None)
-    mutating = (
-        command_name == "download"
-        or (command_name in {"rename", "archive-sync", "bookmarks"} and "--apply" in arguments)
-        or (command_name == "resort" and ({"--apply", "--undo-last"} & set(arguments)))
-    )
+    access = command_access(command_name, arguments)
     try:
+        root_parser = argparse.ArgumentParser(add_help=False)
+        root_parser.add_argument("--root", type=Path, default=root)
+        effective_root, _ = root_parser.parse_known_args(command_arguments)
         sys.argv = [f"{command_name}.py", *command_arguments]
         with use_console(console):
-            if mutating:
-                with ArchiveLock(root):
+            if access is not AccessMode.READ_ONLY:
+                with ArchiveLock(effective_root.root.resolve()):
                     return int(COMMAND_MODULES[command_name].main() or 0)
             return int(COMMAND_MODULES[command_name].main() or 0)
     except ArchiveLockedError as error:
@@ -184,7 +202,7 @@ def execute_command(
     except KeyboardInterrupt:
         console.warning("Операция прервана.")
         return 130
-    except (OSError, ImportError) as error:
+    except (OSError, ImportError, ConfigError) as error:
         console.error(f"Не удалось запустить {command_name}: {error}")
         return 2
     finally:

@@ -12,12 +12,12 @@ from pathlib import Path
 from .. import cache as video_metadata_cache
 from .. import config as video_config
 from .. import journal as video_journal
-from ..config import config_section
 from ..console import get_console
 from ..core import is_affirmative_reply, normalize_windows_name
 from ..models import parse_source_ref
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
+from ..settings import Settings
 from . import inventory
 
 BASE_DIR = video_config.BASE_DIR
@@ -25,7 +25,6 @@ configured_command = video_config.configured_command
 configured_path = video_config.configured_path
 get_cached_field = video_metadata_cache.get_field
 load_config = video_config.load_config
-JOURNAL_DIR_NAME = video_journal.JOURNAL_DIR_NAME
 journal_path = video_journal.journal_path
 path_from_journal = video_journal.path_from_journal
 read_journal = video_journal.read_journal
@@ -47,7 +46,7 @@ SUBTITLE_EXTENSIONS = inventory.SUBTITLE_EXTENSIONS
 
 def parse_args() -> argparse.Namespace:
     config = load_config()
-    sorting = config_section(config, "sorting")
+    sorting = Settings.from_mapping(config).sorting
     default_cookies = configured_path(config, "cookies", env_name="YOUTUBE_COOKIES_FILE")
 
     parser = argparse.ArgumentParser(description="Сортирует видео из корня по папкам авторов.")
@@ -57,17 +56,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--pause",
         type=float,
-        default=float(sorting.get("pause_seconds", 2)),
+        default=sorting.pause_seconds,
     )
     parser.add_argument(
         "--max-retries",
         type=int,
-        default=int(sorting.get("max_retries", 3)),
+        default=sorting.max_retries,
     )
     parser.add_argument(
         "--allow-unknown",
         action="store_true",
-        default=bool(sorting.get("allow_unknown", False)),
+        default=sorting.allow_unknown,
         help="Разрешить перемещение в папку Unknown при отсутствии автора.",
     )
     parser.add_argument(
@@ -111,7 +110,9 @@ def sanitize_name(name: str, *, preserve_extension: bool = False) -> str:
 def log_error(root: Path, message: str, *, write_log: bool) -> None:
     get_console().error(f"{message}")
     if write_log:
-        with (root / "errors.log").open("a", encoding="utf-8") as error_log:
+        state_dir = video_config.state_directory(root)
+        state_dir.mkdir(parents=True, exist_ok=True)
+        with (state_dir / "errors.log").open("a", encoding="utf-8") as error_log:
             error_log.write(f"[ERROR] {message}\n")
 
 
@@ -439,7 +440,7 @@ def preflight_apply(
             f"нужно {required_journal_space} байт, доступно {free_space}"
         )
 
-    journal_dir = root / JOURNAL_DIR_NAME
+    journal_dir = video_config.state_directory(root)
     journal_dir.mkdir(parents=True, exist_ok=True)
     try:
         file_descriptor, probe_name = tempfile.mkstemp(

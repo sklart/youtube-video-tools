@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from .config import state_directory
+
 
 class ArchiveLockedError(RuntimeError):
     """Raised when another process is changing the same archive."""
@@ -12,7 +14,7 @@ class ArchiveLockedError(RuntimeError):
 
 class ArchiveLock:
     def __init__(self, root: Path) -> None:
-        self.path = root / ".video-tools" / "archive.lock"
+        self.path = state_directory(root) / "archive.lock"
         self._stream = None
 
     def __enter__(self) -> ArchiveLock:

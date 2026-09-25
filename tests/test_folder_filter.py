@@ -4,12 +4,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cli as video_tools
 from youtube_video_tools.commands import inventory
 from youtube_video_tools.core import FOLDER_FILTER_ENV, resolve_folder_filter
 
 
-class FolderFilterTests(unittest.TestCase):
+class FolderFilterTests(IsolatedTestCase):
     def test_resolves_masks_case_insensitively(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

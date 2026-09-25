@@ -40,9 +40,9 @@ def active_folder_filter() -> tuple[str, ...]:
     return tuple(str(folder) for folder in folders)
 
 
-def path_selected(root: Path, path: Path) -> bool:
+def path_selected(root: Path, path: Path, folders: tuple[str, ...] | None = None) -> bool:
     """Return whether a path belongs to the active top-level folder filter."""
-    folders = active_folder_filter()
+    folders = active_folder_filter() if folders is None else folders
     if not folders:
         return True
     try:

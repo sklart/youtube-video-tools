@@ -5,14 +5,15 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools import cli as video_tools
-from youtube_video_tools.config import BASE_DIR, DEFAULT_CONFIG_PATH
+from youtube_video_tools.config import BASE_DIR
 from youtube_video_tools.console import get_console
 from youtube_video_tools.core import extract_filename_date, normalize_windows_name
 from youtube_video_tools.locking import ArchiveLock
 
 
-class VideoToolsTests(unittest.TestCase):
+class VideoToolsTests(IsolatedTestCase):
     def test_resort_receives_root_and_config(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -169,6 +170,13 @@ class VideoToolsTests(unittest.TestCase):
             ("resort", ["--undo-last"]),
             ("archive-sync", ["--apply"]),
             ("bookmarks", ["--apply"]),
+            ("bookmarks", ["--dry-run"]),
+            ("rename", ["--dry-run"]),
+            ("resort", ["--dry-run"]),
+            ("duplicates", []),
+            ("subtitles", []),
+            ("inventory", []),
+            ("report", ["--output", "report.csv"]),
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -190,15 +198,10 @@ class VideoToolsTests(unittest.TestCase):
 
     def test_read_only_commands_run_while_archive_locked(self):
         cases = (
-            ("rename", ["--dry-run"]),
-            ("resort", ["--dry-run"]),
             ("archive-sync", ["--dry-run"]),
-            ("bookmarks", ["--dry-run"]),
             ("dates", []),
             ("resolution", []),
-            ("inventory", []),
             ("report", []),
-            ("duplicates", []),
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -340,7 +343,7 @@ class VideoToolsTests(unittest.TestCase):
             "doctor",
             [],
             root=BASE_DIR.resolve(),
-            config_path=DEFAULT_CONFIG_PATH.resolve(),
+            config_path=self.test_config.resolve(),
         )
 
     def test_menu_returns_to_start_after_command(self):
@@ -384,7 +387,7 @@ class VideoToolsTests(unittest.TestCase):
             "rename",
             ["--apply"],
             root=BASE_DIR.resolve(),
-            config_path=DEFAULT_CONFIG_PATH.resolve(),
+            config_path=self.test_config.resolve(),
         )
 
     def test_menu_confirmed_rename_apply_runs_with_cyrillic_yes(self):
@@ -400,7 +403,7 @@ class VideoToolsTests(unittest.TestCase):
             "rename",
             ["--apply"],
             root=BASE_DIR.resolve(),
-            config_path=DEFAULT_CONFIG_PATH.resolve(),
+            config_path=self.test_config.resolve(),
         )
 
     def test_menu_exit(self):

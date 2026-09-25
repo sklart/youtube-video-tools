@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import download as download_yt_favorites
 from youtube_video_tools.services.process import ProcessResult
 
 
-class DownloadMetadataTests(unittest.TestCase):
+class DownloadMetadataTests(IsolatedTestCase):
     def test_download_does_not_create_info_json_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

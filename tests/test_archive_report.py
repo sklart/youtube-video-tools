@@ -3,10 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.support import IsolatedTestCase
 from youtube_video_tools.commands import report as archive_report
 
 
-class ArchiveReportTests(unittest.TestCase):
+class ArchiveReportTests(IsolatedTestCase):
     def test_reports_missing_metadata_without_reading_video(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

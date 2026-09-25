@@ -1,9 +1,8 @@
-import unittest
-
+from tests.support import IsolatedTestCase
 from youtube_video_tools.models import SourceType, parse_source_ref
 
 
-class SourceRefTests(unittest.TestCase):
+class SourceRefTests(IsolatedTestCase):
     def test_parses_youtube_id(self):
         source = parse_source_ref("Video [abcdefghijk].mp4")
         self.assertIsNotNone(source)
