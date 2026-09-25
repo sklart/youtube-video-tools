@@ -20,6 +20,7 @@ EVENT_BODY = (
 DOWNLOAD_TEMPLATE = "download:VT_PROGRESS:" + EVENT_BODY
 POSTPROCESS_TEMPLATE = "postprocess:VT_POSTPROCESS:" + EVENT_BODY
 COMPLETE_TEMPLATE = "after_move:VT_COMPLETE:%(.{" + INFO_FIELDS + "})j"
+START_TEMPLATE = "before_dl:VT_START:%(.{" + INFO_FIELDS + "})j"
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
@@ -82,14 +83,24 @@ class CompleteEvent:
     playlist_count: int | None = None
 
 
-def parse_event(line: str) -> DownloadProgressEvent | PostprocessEvent | CompleteEvent | None:
+@dataclass(frozen=True)
+class StartEvent:
+    video_id: str = ""
+    title: str = ""
+    playlist_index: int | None = None
+    playlist_count: int | None = None
+
+
+def parse_event(
+    line: str,
+) -> DownloadProgressEvent | PostprocessEvent | CompleteEvent | StartEvent | None:
     prefix, separator, payload = line.strip().partition(":")
-    if not separator or prefix not in {"VT_PROGRESS", "VT_POSTPROCESS", "VT_COMPLETE"}:
+    if not separator or prefix not in {"VT_PROGRESS", "VT_POSTPROCESS", "VT_COMPLETE", "VT_START"}:
         return None
     data = json.loads(payload)
     if not isinstance(data, dict):
         raise ValueError("event must be an object")
-    info = data if prefix == "VT_COMPLETE" else data.get("info", {})
+    info = data if prefix in {"VT_COMPLETE", "VT_START"} else data.get("info", {})
     progress = data.get("progress", {})
     if not isinstance(info, dict) or not isinstance(progress, dict):
         raise ValueError("info/progress must be objects")
@@ -101,6 +112,8 @@ def parse_event(line: str) -> DownloadProgressEvent | PostprocessEvent | Complet
     )
     if prefix == "VT_COMPLETE":
         return CompleteEvent(**common)
+    if prefix == "VT_START":
+        return StartEvent(**common)
     if prefix == "VT_POSTPROCESS":
         return PostprocessEvent(
             **common,
@@ -147,7 +160,6 @@ class DownloadProgressRenderer:
         self.last_time = float("-inf")
         self.last_percent: float | None = None
         self.last_stage = None
-        self.finished_streams: set[tuple] = set()
         self.completed: set[tuple] = set()
         self.errors = 0
 
@@ -164,6 +176,8 @@ class DownloadProgressRenderer:
             POSTPROCESS_TEMPLATE,
             "--print",
             COMPLETE_TEMPLATE,
+            "--print",
+            START_TEMPLATE,
             "--no-simulate",
             "--no-quiet",
         ]
@@ -231,7 +245,11 @@ class DownloadProgressRenderer:
                     "SponsorBlock": "SponsorBlock: обработка сегментов",
                     "ModifyChapters": "Запись глав",
                 }.get(name, f"Обработка: {name or 'неизвестный этап'}")
-                self.console.info(f"↳ {self.label(event)}{description}")
+                self.console.stage(f"↳ {self.label(event)}{description}")
+        elif isinstance(event, StartEvent):
+            self.console.write_live(
+                f"↓ {self.label(event)}Подготовка │ {event.title or event.video_id}"
+            )
         elif isinstance(event, CompleteEvent):
             key = (event.video_id or event.title, event.playlist_index)
             if key[0] and key not in self.completed:
@@ -268,16 +286,9 @@ class DownloadProgressRenderer:
             self.on_line(f"ERROR: {event.title or event.video_id}: ошибка загрузки")
             return
         if finished:
-            if key not in self.finished_streams:
-                self.finished_streams.add(key)
-                size = event.downloaded_bytes if event.downloaded_bytes is not None else total
-                details = f" │ {size / 1048576:.1f} MiB" if size is not None else ""
-                self.console.finish_live(
-                    f"✓ {self.label(event)}· {stream_stage(event)} │ {event.title or event.video_id}{details} │ {format_time(event.elapsed)}"
-                )
-            return
+            percent = 100.0
         now = self.clock()
-        if key == self.last_key:
+        if not finished and key == self.last_key:
             interval = 0.25 if self.console.is_interactive else 1.0
             notable = (
                 not self.console.is_interactive

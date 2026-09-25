@@ -21,18 +21,6 @@ synchronize_archive = sync_download_archive.synchronize_archive
 PLAYLIST_URL = "https://www.youtube.com/playlist?list=WL"
 
 
-def fix_unknown_channel(line: str) -> str:
-    return line.replace("<unknown>", "Unknown")
-
-
-def simplify_terminal_line(line: str) -> str:
-    cleaned = fix_unknown_channel(line).replace("\ufffd", "?")
-    return "".join(
-        character if character.isprintable() or character in "\r\n\t" else "?"
-        for character in cleaned
-    )
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Скачивает плейлист Смотреть позже.")
     parser.add_argument("--root", type=Path, default=BASE_DIR)

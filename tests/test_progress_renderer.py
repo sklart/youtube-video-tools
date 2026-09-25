@@ -96,6 +96,9 @@ class ProgressRendererTests(IsolatedTestCase):
             self.assertNotIn("\n", output.getvalue())
             self.assertIn("\r", output.getvalue())
             renderer.on_line(download_line(100, status="finished"))
+            self.assertNotIn("\n", output.getvalue())
+            self.assertNotIn("✓", output.getvalue())
+            renderer.on_line('VT_COMPLETE:{"id":"abc","title":"Тестовый ролик"}')
             self.assertEqual(output.getvalue().count("\n"), 1)
             renderer.on_line(download_line(0, info={"id": "next", "title": "Следующее видео"}))
             self.assertEqual(output.getvalue().count("\n"), 1)
@@ -135,9 +138,12 @@ class ProgressRendererTests(IsolatedTestCase):
                 renderer.on_line(download_line(value))
             self.now = 2
             renderer.on_line(download_line(11))
+            self.assertEqual(output.getvalue().count("[PROGRESS]"), 2)
             renderer.on_line(download_line(100, status="finished"))
         text = output.getvalue()
-        self.assertEqual(text.count("[PROGRESS]"), 2)
+        self.assertEqual(text.count("[PROGRESS]"), 3)
+        self.assertIn("100.0%", text)
+        self.assertNotIn("[OK]", text)
         self.assertTrue(text.endswith("\n"))
         self.assertNotIn("\r", text)
         self.assertNotIn("\x1b", text)
@@ -147,6 +153,7 @@ class ProgressRendererTests(IsolatedTestCase):
         renderer = self.renderer(quiet=True, verbose=True)
         with redirect_stdout(output):
             renderer.on_line(download_line())
+            renderer.on_line('VT_START:{"id":"abc","title":"Тест"}')
             renderer.on_line(post_line("Merger"))
             renderer.on_line('VT_COMPLETE:{"id":"abc"}')
             renderer.on_line("technical output")
@@ -206,6 +213,9 @@ class ProgressRendererTests(IsolatedTestCase):
                 )
             )
             self.assertEqual(len(renderer.completed), 0)
+            self.assertNotIn("[OK]", output.getvalue())
+            self.assertNotIn("✓", output.getvalue())
+            renderer.on_line(post_line("Merger"))
             renderer.on_line('VT_COMPLETE:{"id":"abc","title":"Тест"}')
             renderer.on_line('VT_COMPLETE:{"id":"abc","title":"Тест"}')
             renderer.finish(0)
@@ -213,6 +223,35 @@ class ProgressRendererTests(IsolatedTestCase):
         self.assertIn("Аудио", output.getvalue())
         self.assertIn("Видео завершено: 1", output.getvalue())
         self.assertNotIn("Пропущено", output.getvalue())
+        self.assertEqual(output.getvalue().count("✓"), 1)
+        self.assertLess(output.getvalue().index("Объединение"), output.getvalue().index("✓"))
+
+    def test_two_single_file_videos_have_one_final_line_each(self):
+        for output in (Tty(), StringIO()):
+            with self.subTest(tty=output.isatty()), redirect_stdout(output):
+                renderer = self.renderer()
+                for video_id in ("first", "second"):
+                    renderer.on_line("VT_START:" + json.dumps({"id": video_id, "title": video_id}))
+                    info = {"id": video_id, "title": video_id, "acodec": "aac"}
+                    renderer.on_line(download_line(20, info=info))
+                    renderer.on_line(download_line(100, info=info, status="finished"))
+                    renderer.on_line(post_line("ModifyChapters"))
+                    complete = "VT_COMPLETE:" + json.dumps({"id": video_id, "title": video_id})
+                    renderer.on_line(complete)
+                    renderer.on_line(complete)
+                text = output.getvalue()
+                self.assertEqual(text.count("✓"), 2)
+                self.assertEqual(text.count("Готово"), 2)
+                self.assertIn("Медиа", text)
+                self.assertIn("Подготовка", text)
+                if output.isatty():
+                    self.assertNotIn("[OK]", text)
+                    self.assertNotIn("[INFO]", text)
+                else:
+                    self.assertEqual(text.count("[OK]"), 2)
+                    self.assertIn("[INFO]", text)
+                    self.assertNotIn("\r", text)
+                    self.assertNotIn("\x1b", text)
 
     def test_width_and_estimate_fallback(self):
         renderer = self.renderer()

@@ -56,15 +56,19 @@ class Console:
 
     def finish_live(self, message: str) -> None:
         self.clear_live()
-        self.success(message)
+        self.emit(Level.SUCCESS, message, semantic=True)
 
-    def emit(self, level: Level, message: str, *, end: str = "\n") -> None:
+    def stage(self, message: str) -> None:
+        self.emit(Level.INFO, message, semantic=True)
+
+    def emit(self, level: Level, message: str, *, end: str = "\n", semantic: bool = False) -> None:
         if self.quiet and level not in {Level.WARNING, Level.ERROR}:
             return
         if level is Level.VERBOSE and not self.verbose_enabled:
             return
         self.clear_live()
-        _write_text(f"[{level.value}] {message}", end=end)
+        prefix = "" if semantic and self.is_interactive else f"[{level.value}] "
+        _write_text(prefix + message, end=end)
 
     def info(self, message: str) -> None:
         self.emit(Level.INFO, message)

@@ -23,7 +23,6 @@ from ..bookmarks.planner import normalize_chapters as normalize_chapters
 from ..bookmarks.planner import short_chapter_diff as short_chapter_diff
 from ..bookmarks.planner import summarize_transition as summarize_transition
 from ..bookmarks.redownload import redownload_video as redownload_video
-from ..bookmarks.redownload import simplify_terminal_line as simplify_terminal_line
 from ..bookmarks.rewriter import build_ffmetadata as build_ffmetadata
 from ..bookmarks.rewriter import escape_ffmetadata_value as escape_ffmetadata_value
 from ..bookmarks.rewriter import rewrite_embedded_chapters as rewrite_embedded_chapters

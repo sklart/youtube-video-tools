@@ -9,6 +9,7 @@ from youtube_video_tools.progress import (
     COMPLETE_TEMPLATE,
     DOWNLOAD_TEMPLATE,
     POSTPROCESS_TEMPLATE,
+    START_TEMPLATE,
     DownloadProgressRenderer,
     parse_event,
 )
@@ -30,8 +31,9 @@ class ProgressProtocolTests(IsolatedTestCase):
                 event = parse_event(line)
                 self.assertEqual(event.video_id, "test")
                 self.assertEqual(event.title, title.replace("\n", " "))
-            line = downloader.evaluate_outtmpl(COMPLETE_TEMPLATE.split(":", 1)[1], info)
-            self.assertEqual(parse_event(line).video_id, "test")
+            for template in (START_TEMPLATE, COMPLETE_TEMPLATE):
+                line = downloader.evaluate_outtmpl(template.split(":", 1)[1], info)
+                self.assertEqual(parse_event(line).video_id, "test")
 
     def test_print_does_not_enable_simulation_or_disable_progress(self):
         from yt_dlp import parse_options
@@ -43,3 +45,4 @@ class ProgressProtocolTests(IsolatedTestCase):
         self.assertFalse(options.ydl_opts.get("noprogress"))
         self.assertFalse(options.ydl_opts.get("writeinfojson"))
         self.assertIn("after_move", options.ydl_opts["forceprint"])
+        self.assertIn("before_dl", options.ydl_opts["forceprint"])

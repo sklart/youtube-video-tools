@@ -12,14 +12,6 @@ from .constants import MARK_CATEGORIES, REMOVE_CATEGORIES
 from .rewriter import validate_temporary_video
 
 
-def simplify_terminal_line(line: str) -> str:
-    cleaned = line.replace("\ufffd", "?")
-    return "".join(
-        character if character.isprintable() or character in "\r\n\t" else "?"
-        for character in cleaned
-    )
-
-
 def redownload_video(
     video_path: Path,
     video_id: str,
@@ -90,13 +82,13 @@ def redownload_video(
             else:
                 return False, "перекачивание завершилось без выходного файла"
 
-        renderer.console.info("↳ Проверка нового файла")
+        renderer.console.stage("↳ Проверка нового файла")
         valid, error = validate_temporary_video(temp_output, ffprobe=ffprobe)
         if not valid:
             temp_output.unlink(missing_ok=True)
             return False, f"временный файл не прошёл проверку: {error}"
         temp_output.replace(video_path)
-        renderer.console.success("✓ Видео успешно заменено")
+        renderer.console.success("Видео успешно заменено")
         return True, None
     finally:
         renderer.close()
