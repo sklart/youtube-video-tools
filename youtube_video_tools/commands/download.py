@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .. import config as video_config
 from ..console import get_console
+from ..progress import DownloadProgressRenderer
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
 from ..settings import Settings
@@ -82,24 +83,16 @@ def main() -> int:
         PLAYLIST_URL,
     ]
 
-    def show_line(raw_line: str) -> None:
-        line = simplify_terminal_line(raw_line.strip())
-        if not line:
-            return
-        if "[download]" in line:
-            get_console().progress(line)
-        elif "error" in line.lower():
-            get_console().error(line)
-
+    renderer = DownloadProgressRenderer(get_console())
     try:
-        result = YtDlpClient(yt_dlp, cookies_file=cookies_file).stream(arguments, on_line=show_line)
+        result = YtDlpClient(yt_dlp, cookies_file=cookies_file).stream(
+            [*renderer.arguments(), *arguments], on_line=renderer.on_line
+        )
     except ExternalToolError as error:
-        get_console().error(f"{error}")
+        renderer.on_line(f"ERROR: {error}")
+        renderer.finish(2)
         return 2
-
-    if result.returncode != 0:
-        get_console().error(f"yt-dlp завершился с кодом {result.returncode}")
-    else:
-        get_console().info("")
-
+    finally:
+        renderer.close()
+    renderer.finish(result.returncode)
     return result.returncode

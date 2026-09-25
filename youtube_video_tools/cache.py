@@ -8,7 +8,6 @@ from .config import state_directory
 from .state import atomic_write_json
 
 CACHE_FILE_NAME = "yt-dlp-cache.json"
-JOURNAL_DIR_NAME = ".video-tools"
 
 
 def cache_path(root: Path) -> Path:

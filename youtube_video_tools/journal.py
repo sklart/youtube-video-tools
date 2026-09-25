@@ -8,7 +8,6 @@ from pathlib import Path
 from .config import state_directory
 from .console import get_console
 
-JOURNAL_DIR_NAME = ".video-tools"
 JOURNAL_FILE_NAME = "operations.jsonl"
 
 

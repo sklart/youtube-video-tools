@@ -13,7 +13,12 @@ def command_access(name: str, arguments: list[str]) -> AccessMode:
     if name in {"download", "subtitles"}:
         return AccessMode.ARCHIVE_WRITE
     if name in {"rename", "resort", "bookmarks", "archive-sync"} and (
-        {"--apply", "--undo-last"} & set(arguments)
+        any(
+            arg.startswith("--")
+            and len(arg) > 2
+            and any(flag.startswith(arg) for flag in ("--apply", "--undo-last"))
+            for arg in arguments
+        )
     ):
         return AccessMode.ARCHIVE_WRITE
     if name in {"rename", "resort", "bookmarks", "duplicates", "doctor", "inventory"}:

@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from ..console import get_console
+from ..progress import DownloadProgressRenderer
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
 from .constants import MARK_CATEGORIES, REMOVE_CATEGORIES
@@ -38,6 +39,7 @@ def redownload_video(
     temp_output.unlink(missing_ok=True)
 
     cleanup_prefix = temp_output.stem
+    renderer = DownloadProgressRenderer(get_console(), redownload=True)
     try:
         command = [
             "--no-playlist",
@@ -63,20 +65,11 @@ def redownload_video(
             f"https://www.youtube.com/watch?v={video_id}",
         ]
 
-        def show_line(raw_line: str) -> None:
-            line = simplify_terminal_line(raw_line.strip())
-            if not line:
-                return
-            if "[download]" in line:
-                get_console().progress(f"REDOWNLOAD: {line}")
-            elif "error" in line.lower():
-                get_console().error(line)
-
         try:
             result = YtDlpClient(yt_dlp, cookies_file=cookies).stream(
-                command,
+                [*renderer.arguments(), *command],
                 timeout=timeout,
-                on_line=show_line,
+                on_line=renderer.on_line,
             )
         except ExternalToolError as error:
             return False, str(error)
@@ -97,14 +90,16 @@ def redownload_video(
             else:
                 return False, "перекачивание завершилось без выходного файла"
 
+        renderer.console.info("↳ Проверка нового файла")
         valid, error = validate_temporary_video(temp_output, ffprobe=ffprobe)
         if not valid:
             temp_output.unlink(missing_ok=True)
             return False, f"временный файл не прошёл проверку: {error}"
         temp_output.replace(video_path)
-        get_console().info("")
+        renderer.console.success("✓ Видео успешно заменено")
         return True, None
     finally:
+        renderer.close()
         for temporary in video_path.parent.iterdir():
             if temporary.name.startswith(cleanup_prefix) and temporary.is_file():
                 temporary.unlink(missing_ok=True)

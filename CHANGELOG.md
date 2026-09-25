@@ -2,6 +2,11 @@
 
 ## Unreleased - Stabilization Before Stage 2
 
+- Общий структурированный progress UI загрузки и перекачивания: live-line в TTY, ограничение частоты вне TTY, отдельные видео/аудио и post-processing стадии.
+- Предупреждения yt-dlp больше не теряются; техническая диагностика доступна через verbose, quiet сохраняет warnings/errors.
+- Итог считает только подтверждённые after_move события; runtime-зависимости и политика загрузки не изменены.
+- Закреплена regression-матрица AccessMode, включая сокращённые argparse-флаги; удалены неиспользуемые константы путей состояния.
+
 - Resume SponsorBlock привязан к версии схемы, ID, относительному пути, размеру и mtime_ns; перед apply идентичность проверяется повторно.
 - Единый relocated state directory используется журналом, кэшем, lock, планом SponsorBlock и preflight/error log пересортировки.
 - Явные уровни READ_ONLY / STATE_WRITE / ARCHIVE_WRITE; CLI блокирует конкурирующие записи кэша, отчётов и субтитров.

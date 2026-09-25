@@ -107,7 +107,7 @@ def check_root(root: Path) -> CheckResult:
 
     try:
         file_descriptor, probe_name = tempfile.mkstemp(
-            prefix=".video-tools-doctor-",
+            prefix="video-tools-doctor-",
             dir=root,
         )
         os.close(file_descriptor)

@@ -1,3 +1,4 @@
+import json
 import tempfile
 from contextlib import redirect_stdout
 from io import StringIO
@@ -19,9 +20,34 @@ class DownloadProgressTests(IsolatedTestCase):
 
     def check_output(self, command, quiet):
         def fake_stream(client, arguments, **kwargs):
+            self.assertEqual(arguments.count("--progress-template"), 2)
+            self.assertIn("--progress-delta", arguments)
+            self.assertIn("--no-simulate", arguments)
+            self.assertNotIn("--write-info-json", arguments)
             for line in (
-                "[download] 28.5% ETA 00:22\r",
-                "[download] 63.4% ETA 00:09\n",
+                "VT_PROGRESS:"
+                + json.dumps(
+                    {
+                        "info": {"id": "test", "title": "Title"},
+                        "progress": {
+                            "status": "downloading",
+                            "downloaded_bytes": 285,
+                            "total_bytes": 1000,
+                        },
+                    }
+                ),
+                "VT_PROGRESS:"
+                + json.dumps(
+                    {
+                        "info": {"id": "test", "title": "Title"},
+                        "progress": {
+                            "status": "downloading",
+                            "downloaded_bytes": 634,
+                            "total_bytes": 1000,
+                        },
+                    }
+                ),
+                "WARNING: retrying\n",
                 "ERROR: connection lost\n",
             ):
                 kwargs["on_line"](line)
@@ -54,16 +80,17 @@ class DownloadProgressTests(IsolatedTestCase):
 
         text = output.getvalue()
         self.assertIn("[ERROR] ERROR: connection lost\n", text)
+        self.assertIn("[WARN] WARNING: retrying\n", text)
         self.assertNotIn("\r", text)
         self.assertNotIn("\x1b", text)
         if quiet:
             self.assertNotIn("[PROGRESS]", text)
             self.assertNotIn("[INFO]", text)
         else:
-            prefix = "REDOWNLOAD: " if command == "redownload" else ""
-            self.assertIn(
-                f"[PROGRESS] {prefix}[download] 28.5% ETA 00:22\n"
-                f"[PROGRESS] {prefix}[download] 63.4% ETA 00:09\n"
-                "[ERROR] ERROR: connection lost\n",
-                text,
-            )
+            progress = [line for line in text.splitlines() if line.startswith("[PROGRESS]")]
+            self.assertEqual(len(progress), 2)
+            self.assertIn("28.5%", progress[0])
+            self.assertIn("63.4%", progress[1])
+            self.assertIn("Title", progress[1])
+            if command == "redownload":
+                self.assertIn("Перекачивание", progress[1])

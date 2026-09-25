@@ -11,6 +11,8 @@
 - [x] Декомпозиция bookmarks на пять модулей.
 - [x] Типизированные Settings и диагностика TOML.
 - [x] .gitattributes; массовая нормализация не выполнялась.
+- [x] Явная regression-матрица AccessMode, включая сокращённые флаги.
+- [x] Общий структурированный progress UI download/redownload без runtime-зависимостей.
 - [ ] Постепенно переводить остальные команды на Command API без изменения CLI.
 
 ## Stage 2
