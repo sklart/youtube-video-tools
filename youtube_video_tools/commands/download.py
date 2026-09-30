@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .. import config as video_config
 from ..console import get_console
+from ..download_recovery import RecoveryQueue, recover
 from ..progress import DownloadProgressRenderer
 from ..services.process import ExternalToolError
 from ..services.yt_dlp import YtDlpClient
@@ -76,11 +77,13 @@ def main() -> int:
     ]
 
     renderer = DownloadProgressRenderer(get_console())
+    recovery = RecoveryQueue(root)
     auth_hint_shown = False
 
     def show_line(line: str) -> None:
         nonlocal auth_hint_shown
         renderer.on_line(line)
+        recovery.on_line(line)
         message = line.casefold()
         if (
             not auth_hint_shown
@@ -106,4 +109,12 @@ def main() -> int:
     finally:
         renderer.close()
     renderer.finish(result.returncode)
-    return result.returncode
+    _, _, recovery_failures = recover(
+        recovery,
+        archive=archive_file,
+        yt_dlp=yt_dlp,
+        cookies=cookies_file,
+        ffprobe=configured_command(config, "ffprobe", "ffprobe"),
+        timeout=Settings.from_mapping(config).bookmarks.ffmpeg_timeout_seconds,
+    )
+    return result.returncode or int(bool(recovery_failures or recovery.unresolved))

@@ -189,6 +189,7 @@ class ProgressRendererTests(IsolatedTestCase):
                 renderer.on_line(post_line(processor, "finished"))
         lines = output.getvalue().splitlines()
         self.assertEqual(len(lines), 4)
+        self.assertTrue(all(line.startswith("[INFO] > ") for line in lines))
         for text in (
             "Объединение видео и аудио",
             "SponsorBlock: обработка сегментов",

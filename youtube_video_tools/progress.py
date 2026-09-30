@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from .console import Console, display_width, truncate_display
 
-INFO_FIELDS = "id,title,playlist_index,playlist_count,n_entries,format_id,vcodec,acodec"
+INFO_FIELDS = "id,title,playlist_index,playlist_count,n_entries,format_id,vcodec,acodec,filepath"
 PROGRESS_FIELDS = (
     "status,downloaded_bytes,total_bytes,total_bytes_estimate,speed,eta,elapsed,postprocessor"
 )
@@ -73,6 +73,7 @@ class PostprocessEvent:
     status: str = ""
     playlist_index: int | None = None
     playlist_count: int | None = None
+    filepath: str = ""
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,7 @@ def parse_event(
     if prefix == "VT_POSTPROCESS":
         return PostprocessEvent(
             **common,
+            filepath=info.get("filepath") if isinstance(info.get("filepath"), str) else "",
             postprocessor=_text(progress.get("postprocessor")),
             status=_text(progress.get("status")),
         )
@@ -245,7 +247,7 @@ class DownloadProgressRenderer:
                     "SponsorBlock": "SponsorBlock: обработка сегментов",
                     "ModifyChapters": "Запись глав",
                 }.get(name, f"Обработка: {name or 'неизвестный этап'}")
-                self.console.stage(f"↳ {self.label(event)}{description}")
+                self.console.stage(f"> {self.label(event)}{description}")
         elif isinstance(event, StartEvent):
             self.console.write_live(
                 f"↓ {self.label(event)}Подготовка │ {event.title or event.video_id}"

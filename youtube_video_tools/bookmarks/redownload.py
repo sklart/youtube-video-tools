@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from ..console import get_console
@@ -20,6 +21,7 @@ def redownload_video(
     cookies: Path | None,
     ffprobe: str = "ffprobe",
     timeout: int,
+    before_replace: Callable[[], None] | None = None,
 ) -> tuple[bool, str | None]:
     fd, temp_name = tempfile.mkstemp(
         suffix=video_path.suffix,
@@ -82,11 +84,13 @@ def redownload_video(
             else:
                 return False, "перекачивание завершилось без выходного файла"
 
-        renderer.console.stage("↳ Проверка нового файла")
+        renderer.console.stage("> Проверка нового файла")
         valid, error = validate_temporary_video(temp_output, ffprobe=ffprobe)
         if not valid:
             temp_output.unlink(missing_ok=True)
             return False, f"временный файл не прошёл проверку: {error}"
+        if before_replace is not None:
+            before_replace()
         temp_output.replace(video_path)
         renderer.console.finish_live("✓ Видео успешно заменено")
         return True, None

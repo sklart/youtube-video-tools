@@ -105,7 +105,7 @@ class RedownloadCompletionTests(IsolatedTestCase):
                     self.assertNotIn("[OK]", text)
                     self.assertNotIn("[INFO]", text)
                 else:
-                    self.assertIn("[INFO] ↳ Проверка нового файла\n", text)
+                    self.assertIn("[INFO] > Проверка нового файла\n", text)
                     self.assertIn("[OK] ✓ Видео успешно заменено\n", text)
             else:
                 self.assertEqual(video.read_bytes(), b"original")
