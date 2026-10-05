@@ -32,6 +32,7 @@ def main() -> int:
     yt_dlp = configured_command(config, "yt_dlp", "yt-dlp")
     archive_file = root / "yt-dlp-archive.txt"
     output_template = root / "%(uploader)s" / "%(title)s_%(upload_date>%d.%m.%Y)s [%(id)s].%(ext)s"
+    metadata_dir = video_config.state_directory(root) / "download-metadata"
 
     if not cookies_file or not cookies_file.is_file():
         get_console().error(
@@ -73,6 +74,10 @@ def main() -> int:
         "youtubetab:skip=authcheck",
         "-o",
         str(output_template),
+        "-o",
+        f"infojson:{metadata_dir / 'videos' / '%(id)s.%(ext)s'}",
+        "-o",
+        f"pl_infojson:{metadata_dir / 'playlists' / '%(id)s.%(ext)s'}",
         PLAYLIST_URL,
     ]
 
