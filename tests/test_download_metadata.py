@@ -14,7 +14,7 @@ from youtube_video_tools.services.process import ProcessResult
 class DownloadMetadataTests(IsolatedTestCase):
     def test_download_does_not_create_info_json_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
+            root = Path(temp_dir).resolve()
             output = []
             cookies = root / "cookies.txt"
             cookies.write_text("cookies", encoding="utf-8")
