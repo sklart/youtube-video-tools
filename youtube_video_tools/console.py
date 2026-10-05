@@ -25,6 +25,16 @@ class Console:
         self.quiet = quiet
         self.verbose_enabled = verbose
         self._live_width = 0
+        self._color_stream = None
+        self._color_supported = False
+
+    def colorize(self, message: str, code: str) -> str:
+        if not self.is_interactive or "NO_COLOR" in os.environ:
+            return message
+        if self._color_stream is not sys.stdout:
+            self._color_stream = sys.stdout
+            self._color_supported = _enable_terminal_color()
+        return f"\033[{code}m{message}\033[0m" if self._color_supported else message
 
     @property
     def is_interactive(self) -> bool:
@@ -44,7 +54,7 @@ class Console:
             return
         self.clear_live()
         message = truncate_display(message, self.terminal_width - 1)
-        _write_text("\r" + message, end="")
+        _write_text("\r" + self.colorize(message, "1;36"), end="")
         self._live_width = display_width(message)
         sys.stdout.flush()
 
@@ -68,7 +78,10 @@ class Console:
             return
         self.clear_live()
         prefix = "" if semantic and self.is_interactive else f"[{level.value}] "
-        _write_text(prefix + message, end=end)
+        text = prefix + message
+        if semantic and level is Level.SUCCESS:
+            text = self.colorize(text, "1;32")
+        _write_text(text, end=end)
 
     def info(self, message: str) -> None:
         self.emit(Level.INFO, message)
@@ -87,6 +100,32 @@ class Console:
 
     def verbose(self, message: str) -> None:
         self.emit(Level.VERBOSE, message)
+
+
+def _enable_terminal_color() -> bool:
+    """Enable ANSI only on an actual terminal, including Windows console hosts."""
+    try:
+        fd = sys.stdout.fileno()
+        if not os.isatty(fd):
+            return False
+        if os.name != "nt":
+            return True
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.GetConsoleMode.restype = wintypes.BOOL
+        kernel.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel.SetConsoleMode.restype = wintypes.BOOL
+        handle = msvcrt.get_osfhandle(fd)
+        mode = wintypes.DWORD()
+        if not kernel.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        return bool(kernel.SetConsoleMode(handle, mode.value | 0x0004))
+    except (AttributeError, OSError, ValueError):
+        return False
 
 
 _active_console: ContextVar[Console | None] = ContextVar("active_console", default=None)
